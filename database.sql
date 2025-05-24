@@ -1,4 +1,4 @@
--- Database: your_project_name_db
+-- Database: shineo (or your chosen database name)
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -42,7 +42,7 @@ CREATE TABLE `commissions` (
   `paid_in_payroll_run_id` int(11) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -59,7 +59,7 @@ CREATE TABLE `companies` (
   `address` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -83,7 +83,7 @@ CREATE TABLE `expenses` (
   `reconciled_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -148,7 +148,7 @@ CREATE TABLE `paysheets` (
   `approved_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -164,8 +164,9 @@ CREATE TABLE `paysheet_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
+
 --
--- NEW: Table structure for table `permissions` (for Normalized Permissions)
+-- Table structure for table `permissions`
 --
 CREATE TABLE `permissions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -178,7 +179,7 @@ CREATE TABLE `permissions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `permissions` (Example data)
+-- Dumping data for table `permissions`
 --
 INSERT INTO `permissions` (`permission_name`, `description`) VALUES
 ('admin_dashboard_access', 'Access to the main administrator dashboard.'),
@@ -218,21 +219,19 @@ INSERT INTO `permissions` (`permission_name`, `description`) VALUES
 ('view_system_audit_logs', 'Admin can view system audit logs.');
 
 -- --------------------------------------------------------
+
 --
 -- Table structure for table `roles`
--- MODIFIED: Removed 'permissions' column
 --
 CREATE TABLE `roles` (
   `id` int(11) NOT NULL,
   `role_name` varchar(50) NOT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-  -- `permissions` text DEFAULT NULL, -- This column is now removed
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `roles`
--- Note: 'permissions' column removed. Actual permissions will be in 'role_permissions'.
 --
 INSERT INTO `roles` (`id`, `role_name`, `created_at`, `updated_at`) VALUES
 (1, 'Administrator', '2025-05-22 13:38:51', '2025-05-22 13:38:51'),
@@ -240,10 +239,10 @@ INSERT INTO `roles` (`id`, `role_name`, `created_at`, `updated_at`) VALUES
 (3, 'Supervisor', NOW(), NOW()),
 (4, 'Payroll Team', NOW(), NOW());
 
-
 -- --------------------------------------------------------
+
 --
--- NEW: Table structure for table `role_permissions` (for Normalized Permissions)
+-- Table structure for table `role_permissions`
 --
 CREATE TABLE `role_permissions` (
   `role_id` int(11) NOT NULL,
@@ -253,14 +252,11 @@ CREATE TABLE `role_permissions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `role_permissions` (Example: Granting all defined permissions to Administrator role_id=1)
--- This assumes the permission IDs match the order of insertion above.
--- In a real scenario, you'd select permission IDs by name.
+-- Dumping data for table `role_permissions`
 --
 INSERT INTO `role_permissions` (`role_id`, `permission_id`)
-SELECT 1, p.id FROM `permissions` p; -- Gives Admin (role_id 1) all permissions
+SELECT 1, p.id FROM `permissions` p;
 
--- Example permissions for Staff (role_id=2)
 INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
 (2, (SELECT id from `permissions` WHERE permission_name = 'staff_dashboard_access')),
 (2, (SELECT id from `permissions` WHERE permission_name = 'submit_own_timesheets')),
@@ -271,9 +267,8 @@ INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
 (2, (SELECT id from `permissions` WHERE permission_name = 'upload_own_documents')),
 (2, (SELECT id from `permissions` WHERE permission_name = 'view_own_documents'));
 
--- Example permissions for Supervisor (role_id=3) - (includes Staff permissions + more)
 INSERT INTO `role_permissions` (`role_id`, `permission_id`)
-SELECT 3, rp.permission_id FROM `role_permissions` rp WHERE rp.role_id = 2; -- Inherit Staff permissions
+SELECT 3, rp.permission_id FROM `role_permissions` rp WHERE rp.role_id = 2;
 
 INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
 (3, (SELECT id from `permissions` WHERE permission_name = 'supervisor_dashboard_access')),
@@ -288,7 +283,6 @@ INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
 (3, (SELECT id from `permissions` WHERE permission_name = 'supervisor_create_paysheets')),
 (3, (SELECT id from `permissions` WHERE permission_name = 'supervisor_edit_review_paysheets'));
 
--- Example permissions for Payroll Team (role_id=4)
 INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
 (4, (SELECT id from `permissions` WHERE permission_name = 'payroll_dashboard_access')),
 (4, (SELECT id from `permissions` WHERE permission_name = 'payroll_review_paysheets')),
@@ -296,7 +290,6 @@ INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
 (4, (SELECT id from `permissions` WHERE permission_name = 'payroll_mark_paysheets_for_review')),
 (4, (SELECT id from `permissions` WHERE permission_name = 'payroll_run_process')),
 (4, (SELECT id from `permissions` WHERE permission_name = 'view_all_payroll_reports'));
-
 
 -- --------------------------------------------------------
 
@@ -312,7 +305,7 @@ CREATE TABLE `sites` (
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -348,7 +341,7 @@ CREATE TABLE `timesheets` (
   `edited_by_supervisor_id` int(11) DEFAULT NULL,
   `edited_at` timestamp NULL DEFAULT NULL,
   `original_hours_worked` decimal(5,2) DEFAULT NULL,
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -372,7 +365,7 @@ CREATE TABLE `users` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `last_login_at` timestamp NULL DEFAULT NULL,
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -393,7 +386,7 @@ CREATE TABLE `user_documents` (
   `expiry_date` date DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL -- Added for Soft Deletes
+  `deleted_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -402,96 +395,95 @@ CREATE TABLE `user_documents` (
 
 ALTER TABLE `audit_logs`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `idx_audit_user_id` (`user_id`);
 
 ALTER TABLE `commissions`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `earning_user_id` (`earning_user_id`),
-  ADD KEY `submitting_user_id` (`submitting_user_id`),
-  ADD KEY `approver_user_id` (`approver_user_id`),
+  ADD KEY `idx_comm_earning_user_id` (`earning_user_id`),
+  ADD KEY `idx_comm_submitting_user_id` (`submitting_user_id`),
+  ADD KEY `idx_comm_approver_user_id` (`approver_user_id`),
   ADD KEY `fk_commission_payroll_run` (`paid_in_payroll_run_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD KEY `idx_comm_deleted_at` (`deleted_at`);
 
 ALTER TABLE `companies`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `company_name` (`company_name`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD UNIQUE KEY `uk_company_name` (`company_name`),
+  ADD KEY `idx_comp_deleted_at` (`deleted_at`);
 
 ALTER TABLE `expenses`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`),
-  ADD KEY `approver_user_id` (`approver_user_id`),
-  ADD KEY `reconciled_by_payroll_id` (`reconciled_by_payroll_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD KEY `idx_exp_user_id` (`user_id`),
+  ADD KEY `idx_exp_approver_user_id` (`approver_user_id`),
+  ADD KEY `idx_exp_reconciled_by_payroll_id` (`reconciled_by_payroll_id`),
+  ADD KEY `idx_exp_deleted_at` (`deleted_at`);
 
 ALTER TABLE `notifications`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `idx_notif_user_id` (`user_id`);
 
 ALTER TABLE `payroll_runs`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `run_by_user_id` (`run_by_user_id`);
+  ADD KEY `idx_pr_run_by_user_id` (`run_by_user_id`);
 
 ALTER TABLE `payroll_run_paysheets`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `paysheet_id_unique_in_run` (`paysheet_id`), -- Ensured unique name for clarity
-  ADD KEY `payroll_run_id` (`payroll_run_id`);
+  ADD UNIQUE KEY `uk_prp_paysheet_id` (`paysheet_id`),
+  ADD KEY `idx_prp_payroll_run_id` (`payroll_run_id`);
 
 ALTER TABLE `paysheets`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `supervisor_user_id` (`supervisor_user_id`),
-  ADD KEY `reviewed_by_payroll_id` (`reviewed_by_payroll_id`),
-  ADD KEY `approved_by_payroll_id` (`approved_by_payroll_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD KEY `idx_ps_supervisor_user_id` (`supervisor_user_id`),
+  ADD KEY `idx_ps_reviewed_by_payroll_id` (`reviewed_by_payroll_id`),
+  ADD KEY `idx_ps_approved_by_payroll_id` (`approved_by_payroll_id`),
+  ADD KEY `idx_ps_deleted_at` (`deleted_at`);
 
 ALTER TABLE `paysheet_items`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `timesheet_id_unique_in_item` (`timesheet_id`), -- Ensured unique name for clarity
-  ADD KEY `paysheet_id` (`paysheet_id`);
+  ADD UNIQUE KEY `uk_psi_timesheet_id` (`timesheet_id`),
+  ADD KEY `idx_psi_paysheet_id` (`paysheet_id`);
 
-ALTER TABLE `permissions` -- Index for new table already in CREATE TABLE
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `permission_name` (`permission_name`);
+-- For `permissions` table, Primary Key and Unique Key are defined in CREATE TABLE. No ALTER needed here for those.
 
 ALTER TABLE `roles`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `role_name` (`role_name`);
+  ADD UNIQUE KEY `uk_role_name` (`role_name`);
 
-ALTER TABLE `role_permissions` -- Indexes for new table already in CREATE TABLE
-  ADD PRIMARY KEY (`role_id`, `permission_id`),
-  ADD KEY `role_id` (`role_id`),
-  ADD KEY `permission_id` (`permission_id`);
+-- For `role_permissions` table, Primary Key is defined in CREATE TABLE.
+-- Adding individual keys for potential performance on single column lookups.
+ALTER TABLE `role_permissions`
+  ADD KEY `idx_rp_role_id` (`role_id`),
+  ADD KEY `idx_rp_permission_id` (`permission_id`);
 
 ALTER TABLE `sites`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `company_id` (`company_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD KEY `idx_site_company_id` (`company_id`),
+  ADD KEY `idx_site_deleted_at` (`deleted_at`);
 
 ALTER TABLE `staff_assigned_sites`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_staff_site` (`staff_user_id`,`site_id`),
-  ADD KEY `site_id` (`site_id`);
+  ADD UNIQUE KEY `uk_staff_site` (`staff_user_id`,`site_id`),
+  ADD KEY `idx_sas_site_id` (`site_id`);
 
 ALTER TABLE `timesheets`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `staff_user_id` (`staff_user_id`),
-  ADD KEY `site_id` (`site_id`),
-  ADD KEY `approver_user_id` (`approver_user_id`),
-  ADD KEY `edited_by_supervisor_id` (`edited_by_supervisor_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD KEY `idx_ts_staff_user_id` (`staff_user_id`),
+  ADD KEY `idx_ts_site_id` (`site_id`),
+  ADD KEY `idx_ts_approver_user_id` (`approver_user_id`),
+  ADD KEY `idx_ts_edited_by_supervisor_id` (`edited_by_supervisor_id`),
+  ADD KEY `idx_ts_deleted_at` (`deleted_at`);
 
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`),
-  ADD KEY `role_id` (`role_id`),
-  ADD KEY `supervisor_id` (`supervisor_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD UNIQUE KEY `uk_users_email` (`email`),
+  ADD KEY `idx_user_role_id` (`role_id`),
+  ADD KEY `idx_user_supervisor_id` (`supervisor_id`),
+  ADD KEY `idx_user_deleted_at` (`deleted_at`);
 
 ALTER TABLE `user_documents`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `staff_user_id` (`staff_user_id`),
-  ADD KEY `approver_user_id` (`approver_user_id`),
-  ADD KEY `idx_deleted_at` (`deleted_at`); -- Index for soft delete
+  ADD KEY `idx_ud_staff_user_id` (`staff_user_id`),
+  ADD KEY `idx_ud_approver_user_id` (`approver_user_id`),
+  ADD KEY `idx_ud_deleted_at` (`deleted_at`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -505,8 +497,8 @@ ALTER TABLE `payroll_runs` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `payroll_run_paysheets` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `paysheets` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `paysheet_items` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `permissions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1; -- Start permissions ID from 1
-ALTER TABLE `roles` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5; -- Updated due to new roles
+ALTER TABLE `permissions` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36; -- Updated based on number of permissions
+ALTER TABLE `roles` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 ALTER TABLE `sites` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `staff_assigned_sites` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `timesheets` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
@@ -517,62 +509,61 @@ ALTER TABLE `user_documents` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 -- Constraints for dumped tables
 --
 ALTER TABLE `audit_logs`
-  ADD CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_audit_logs_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `commissions`
-  ADD CONSTRAINT `commissions_ibfk_1` FOREIGN KEY (`earning_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `commissions_ibfk_2` FOREIGN KEY (`submitting_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `commissions_ibfk_3` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_commission_payroll_run` FOREIGN KEY (`paid_in_payroll_run_id`) REFERENCES `payroll_runs` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_commissions_earning_user_id` FOREIGN KEY (`earning_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_commissions_submitting_user_id` FOREIGN KEY (`submitting_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_commissions_approver_user_id` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_commissions_payroll_run_id` FOREIGN KEY (`paid_in_payroll_run_id`) REFERENCES `payroll_runs` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `expenses`
-  ADD CONSTRAINT `expenses_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `expenses_ibfk_2` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `expenses_ibfk_3` FOREIGN KEY (`reconciled_by_payroll_id`) REFERENCES `users` (`id`) ON DELETE SET NULL; -- This FK user might be payroll team member, not necessarily a User who can be deleted
+  ADD CONSTRAINT `fk_expenses_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_expenses_approver_user_id` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_expenses_reconciled_by_payroll_id` FOREIGN KEY (`reconciled_by_payroll_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `notifications`
-  ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_notifications_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 ALTER TABLE `payroll_runs`
-  ADD CONSTRAINT `payroll_runs_ibfk_1` FOREIGN KEY (`run_by_user_id`) REFERENCES `users` (`id`);
+  ADD CONSTRAINT `fk_payroll_runs_run_by_user_id` FOREIGN KEY (`run_by_user_id`) REFERENCES `users` (`id`);
 
 ALTER TABLE `payroll_run_paysheets`
-  ADD CONSTRAINT `payroll_run_paysheets_ibfk_1` FOREIGN KEY (`payroll_run_id`) REFERENCES `payroll_runs` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `payroll_run_paysheets_ibfk_2` FOREIGN KEY (`paysheet_id`) REFERENCES `paysheets` (`id`);
+  ADD CONSTRAINT `fk_prp_payroll_run_id` FOREIGN KEY (`payroll_run_id`) REFERENCES `payroll_runs` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_prp_paysheet_id` FOREIGN KEY (`paysheet_id`) REFERENCES `paysheets` (`id`);
 
 ALTER TABLE `paysheets`
-  ADD CONSTRAINT `paysheets_ibfk_1` FOREIGN KEY (`supervisor_user_id`) REFERENCES `users` (`id`),
-  ADD CONSTRAINT `paysheets_ibfk_2` FOREIGN KEY (`reviewed_by_payroll_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `paysheets_ibfk_3` FOREIGN KEY (`approved_by_payroll_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_paysheets_supervisor_user_id` FOREIGN KEY (`supervisor_user_id`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `fk_paysheets_reviewed_by_payroll_id` FOREIGN KEY (`reviewed_by_payroll_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_paysheets_approved_by_payroll_id` FOREIGN KEY (`approved_by_payroll_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `paysheet_items`
-  ADD CONSTRAINT `paysheet_items_ibfk_1` FOREIGN KEY (`paysheet_id`) REFERENCES `paysheets` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `paysheet_items_ibfk_2` FOREIGN KEY (`timesheet_id`) REFERENCES `timesheets` (`id`);
+  ADD CONSTRAINT `fk_psi_paysheet_id` FOREIGN KEY (`paysheet_id`) REFERENCES `paysheets` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_psi_timesheet_id` FOREIGN KEY (`timesheet_id`) REFERENCES `timesheets` (`id`);
 
--- NEW Constraints for role_permissions
 ALTER TABLE `role_permissions`
-  ADD CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_rp_role_id` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_rp_permission_id` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE;
 
 ALTER TABLE `sites`
-  ADD CONSTRAINT `sites_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_sites_company_id` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `staff_assigned_sites`
-  ADD CONSTRAINT `staff_assigned_sites_ibfk_1` FOREIGN KEY (`staff_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `staff_assigned_sites_ibfk_2` FOREIGN KEY (`site_id`) REFERENCES `sites` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_sas_staff_user_id` FOREIGN KEY (`staff_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_sas_site_id` FOREIGN KEY (`site_id`) REFERENCES `sites` (`id`) ON DELETE CASCADE;
 
 ALTER TABLE `timesheets`
-  ADD CONSTRAINT `timesheets_ibfk_1` FOREIGN KEY (`staff_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `timesheets_ibfk_2` FOREIGN KEY (`site_id`) REFERENCES `sites` (`id`),
-  ADD CONSTRAINT `timesheets_ibfk_3` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `timesheets_ibfk_4` FOREIGN KEY (`edited_by_supervisor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_timesheets_staff_user_id` FOREIGN KEY (`staff_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_timesheets_site_id` FOREIGN KEY (`site_id`) REFERENCES `sites` (`id`),
+  ADD CONSTRAINT `fk_timesheets_approver_user_id` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_timesheets_edited_by_supervisor_id` FOREIGN KEY (`edited_by_supervisor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `users`
-  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
-  ADD CONSTRAINT `users_ibfk_2` FOREIGN KEY (`supervisor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_users_role_id` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`),
+  ADD CONSTRAINT `fk_users_supervisor_id` FOREIGN KEY (`supervisor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `user_documents`
-  ADD CONSTRAINT `user_documents_ibfk_1` FOREIGN KEY (`staff_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `user_documents_ibfk_2` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_ud_staff_user_id` FOREIGN KEY (`staff_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_ud_approver_user_id` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 COMMIT;
