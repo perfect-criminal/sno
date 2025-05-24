@@ -70,7 +70,7 @@ We welcome contributions from team members! To contribute:
 Thank you for being a part of this project! Let's build something great together.
 
 Project Structure :
-
+ ```bash
 ├── public/                   # Web server's document root
 │   ├── index.php             # Front controller
 │   └── assets/               # CSS, JS, images (Bootstrap assets here)
@@ -88,3 +88,4 @@ Project Structure :
 ├── .env.example              # Example environment variables
 ├── .env                      # Local environment variables (Should be in .gitignore)
 └── composer.json             # Composer project definition
+ ```
