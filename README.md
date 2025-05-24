@@ -71,21 +71,41 @@ Thank you for being a part of this project! Let's build something great together
 
 Project Structure :
  ```bash
-├── public/                   # Web server's document root
-│   ├── index.php             # Front controller
-│   └── assets/               # CSS, JS, images (Bootstrap assets here)
-├── src/                      # PHP application code (PSR-4, namespace App\)
-│   ├── Core/                 # Core functionalities (Router, DB Connection, Auth logic, Base classes)
-│   ├── Layer1_UserCompanySite/ # Modules for Layer 1
-│   ├── Layer2_Staff/         # Modules for Layer 2
-│   ├── Layer3_Supervisor/    # Modules for Layer 3
-│   ├── Layer4_Payroll/       # Modules for Layer 4
-│   └── Layer5_Admin/         # Modules for Layer 5
-├── templates/                # HTML templates (e.g., Twig, Blade, or plain PHP)
-├── config/                   # Configuration files (database.php, app.php)
-├── vendor/                   # Composer dependencies (Managed by Composer)
-├── tests/                    # Unit and integration tests (Good practice to include)
-├── .env.example              # Example environment variables
-├── .env                      # Local environment variables (Should be in .gitignore)
-└── composer.json             # Composer project definition
+├── public/
+│   ├── index.php
+│   └── assets/
+├── src/
+│   ├── Admin/                  # Was Layer5_Admin
+│   │   ├── Controller/
+│   │   └── Model/              # (And Service/, Repository/ as needed)
+│   ├── Core/
+│   │   ├── Database/
+│   │   ├── Http/
+│   │   └── ...                 # Other core components
+│   ├── Payroll/                # Was Layer4_Payroll
+│   │   ├── Controller/
+│   │   └── Model/
+│   ├── Staff/                  # Was Layer2_Staff
+│   │   ├── Controller/
+│   │   └── Model/
+│   ├── Supervisor/             # Was Layer3_Supervisor
+│   │   ├── Controller/
+│   │   └── Model/
+│   └── UserManagement/         # Was Layer1_UserCompanySite
+│       ├── Controller/
+│       └── Model/
+├── templates/
+│   ├── admin/
+│   ├── auth/                   # Likely part of UserManagement views
+│   ├── layouts/
+│   ├── partials/
+│   ├── payroll/
+│   ├── staff/
+│   └── supervisor/
+├── config/
+├── vendor/
+├── tests/
+├── .env.example
+├── .env
+└── composer.json
  ```
