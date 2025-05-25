@@ -334,4 +334,51 @@ class TimesheetController
         header('Location: /staff/timesheets'); // Redirect to timesheet history
         exit;
     }
+    /**
+     * Display the form for staff to edit and resubmit a rejected timesheet.
+     * @param string $id The ID of the timesheet to edit.
+     */
+    public function edit(string $id): void
+    {
+        $this->enforceStaffAccess();
+        $timesheetId = (int)$id;
+        $staffId = $_SESSION['user_id'] ?? 0;
+
+        try {
+            $timesheet = Timesheet::findById($timesheetId);
+
+            if (!$timesheet) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Timesheet not found.'];
+                header('Location: /staff/timesheets');
+                exit;
+            }
+
+            // Security Check: Belongs to current staff and is in 'Rejected' status
+            if ($timesheet->staff_user_id !== $staffId || $timesheet->status !== 'Rejected') {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'This timesheet cannot be edited or resubmitted at this time.'];
+                header('Location: /staff/timesheets');
+                exit;
+            }
+
+            $assignedSites = Site::findAssignedToStaff($staffId);
+            $allActiveSites = Site::findAllActive();
+
+            View::render('staff/timesheets/edit_resubmit', [ // New view file
+                'pageTitle' => 'Edit and Resubmit Timesheet (ID: ' . $timesheetId . ')',
+                'timesheet' => $timesheet, // Pass the timesheet data
+                'assignedSites' => $assignedSites,
+                'allActiveSites' => $allActiveSites,
+                'form_data' => $_SESSION['form_data'] ?? (array)$timesheet, // Pre-fill with timesheet or old form data
+                'errors' => $_SESSION['form_errors'] ?? []
+            ], 'app');
+            unset($_SESSION['form_errors']);
+            unset($_SESSION['form_data']);
+
+        } catch (Exception $e) {
+            error_log("Error loading timesheet edit form for staff (ID {$timesheetId}): " . $e->getMessage());
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Could not load timesheet for editing.'];
+            header('Location: /staff/timesheets');
+            exit;
+        }
+    }
 }

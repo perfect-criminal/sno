@@ -112,6 +112,9 @@ $router->get('/supervisor/timesheets/pending', [SupervisorTimesheetController::c
 $router->get('/supervisor/timesheets/edit/{id}', [SupervisorTimesheetController::class, 'edit']);
 $router->post('/supervisor/timesheets/update/{id}', [SupervisorTimesheetController::class, 'update']);
 $router->get('/supervisor/timesheets/disputed', [SupervisorTimesheetController::class, 'disputedList']);
+$router->post('/supervisor/timesheets/approve', [SupervisorTimesheetController::class, 'approve']);
+$router->get('/supervisor/timesheets/reject-form/{id}', [SupervisorTimesheetController::class, 'showRejectForm']);
+$router->post('/supervisor/timesheets/reject-action/{id}', [SupervisorTimesheetController::class, 'processReject']);
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];
 // Basic sanitization: remove query string from URI for routing

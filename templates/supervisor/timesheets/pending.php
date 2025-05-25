@@ -51,10 +51,7 @@
                                 <input type="hidden" name="timesheet_id" value="<?= htmlspecialchars($timesheet->id) ?>">
                                 <button type="submit" class="btn btn-success btn-sm">Approve</button>
                             </form>
-                            <form action="/supervisor/timesheets/reject" method="POST" style="display: inline-block;" onsubmit="return confirm('Are you sure you want to reject this timesheet? You will be asked for a reason.');">
-                                <input type="hidden" name="timesheet_id" value="<?= htmlspecialchars($timesheet->id) ?>">
-                                <button type="submit" class="btn btn-danger btn-sm">Reject</button>
-                            </form>
+                            <a href="/supervisor/timesheets/reject-form/<?= htmlspecialchars($timesheet->id) ?>" class="btn btn-danger btn-sm">Reject</a>
                         </td>
                     </tr>
                 <?php endforeach; ?>

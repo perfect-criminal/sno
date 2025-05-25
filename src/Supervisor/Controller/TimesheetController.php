@@ -58,6 +58,190 @@ class TimesheetController
             'errorMessage' => $errorMessage
         ], 'app');
     }
+
+    public function approve(): void
+    {
+        $this->enforceSupervisorAccess();
+        $supervisorId = $_SESSION['user_id'] ?? 0;
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['timesheet_id'])) {
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Invalid request.'];
+            header('Location: /supervisor/timesheets/pending');
+            exit;
+        }
+
+        $timesheetId = (int)$_POST['timesheet_id'];
+
+        try {
+            $timesheet = Timesheet::findById($timesheetId);
+
+            if (!$timesheet) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Timesheet not found.'];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            // Security Check: Ensure timesheet belongs to supervised staff
+            $staffUser = User::findById($timesheet->staff_user_id);
+            if (!$staffUser || $staffUser->supervisor_id !== $supervisorId) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'You are not authorized to approve this timesheet.'];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            // Check if timesheet is in a state that can be approved
+            // (e.g., Pending, EditedBySupervisor, PendingStaffConfirmation, or even DisputedByStaff if supervisor overrides)
+            $allowedStatusesForApproval = ['Pending', 'EditedBySupervisor', 'PendingStaffConfirmation', 'DisputedByStaff'];
+            if (!in_array($timesheet->status, $allowedStatusesForApproval)) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'This timesheet is not in a state that can be approved. Current status: ' . $timesheet->status];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            $timesheet->status = 'Approved';
+            $timesheet->approver_user_id = $supervisorId;
+            $timesheet->approved_at = date('Y-m-d H:i:s');
+            $timesheet->rejection_reason = null; // Clear any previous rejection reason
+            $timesheet->staff_dispute_reason = null; // Clear any previous dispute reason
+
+            if ($timesheet->save()) {
+                $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'Timesheet (ID: '.$timesheetId.') approved successfully!'];
+                // TODO: Create notification for staff member
+            } else {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Failed to approve timesheet. Please try again.'];
+            }
+        } catch (Exception $e) {
+            error_log("Error approving timesheet ID {$timesheetId} by supervisor ID {$supervisorId}: " . $e->getMessage());
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'An error occurred while approving the timesheet: ' . $e->getMessage()];
+        }
+
+        // Redirect back to the list where it came from, or a general pending list
+        // For now, let's always go back to pending list.
+        header('Location: /supervisor/timesheets/pending');
+        exit;
+    }
+
+    public function showRejectForm(string $id): void
+    {
+        $this->enforceSupervisorAccess();
+        $timesheetId = (int)$id;
+        $supervisorId = $_SESSION['user_id'] ?? 0;
+
+        try {
+            $timesheet = Timesheet::findById($timesheetId);
+
+            if (!$timesheet) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Timesheet not found.'];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            // Security Check: Ensure timesheet belongs to supervised staff
+            $staffUser = User::findById($timesheet->staff_user_id);
+            if (!$staffUser || $staffUser->supervisor_id !== $supervisorId) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'You are not authorized to act on this timesheet.'];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            // Check if timesheet is in a state that can be rejected
+            $allowedStatusesForRejection = ['Pending', 'EditedBySupervisor', 'PendingStaffConfirmation', 'DisputedByStaff'];
+            if (!in_array($timesheet->status, $allowedStatusesForRejection)) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'This timesheet is not in a state that can be rejected. Current status: ' . $timesheet->status];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+
+            View::render('supervisor/timesheets/reject_form', [
+                'pageTitle' => 'Reject Timesheet for ' . htmlspecialchars($timesheet->staff_name ?? 'Staff'),
+                'timesheet' => $timesheet,
+                'form_data' => $_SESSION['form_data'] ?? [], // For sticky form on error
+                'errors' => $_SESSION['form_errors'] ?? []
+            ], 'app');
+            unset($_SESSION['form_errors']);
+            unset($_SESSION['form_data']);
+
+        } catch (Exception $e) {
+            error_log("Error loading timesheet rejection form for ID {$timesheetId}: " . $e->getMessage());
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Could not load timesheet for rejection.'];
+            header('Location: /supervisor/timesheets/pending');
+            exit;
+        }
+    }
+    public function processReject(string $id): void
+    {
+        $this->enforceSupervisorAccess();
+        $timesheetId = (int)$id;
+        $supervisorId = $_SESSION['user_id'] ?? 0;
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            // Should not happen if form POSTs correctly
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Invalid request method.'];
+            header('Location: /supervisor/timesheets/reject-form/' . $timesheetId);
+            exit;
+        }
+
+        $rejectionReason = trim($_POST['rejection_reason'] ?? '');
+        // The timesheet_id from the hidden form field can also be used for an extra check if needed,
+        // but the ID from the URL is the primary identifier here.
+        // $formTimesheetId = (int)($_POST['timesheet_id'] ?? 0);
+        // if ($formTimesheetId !== $timesheetId) { ... handle mismatch ... }
+
+
+        if (empty($rejectionReason)) {
+            $_SESSION['form_errors'] = ['rejection_reason' => 'A reason for rejection is required.'];
+            // $_SESSION['form_data'] = $_POST; // Not strictly needed as only one field, but good for consistency
+            header('Location: /supervisor/timesheets/reject-form/' . $timesheetId);
+            exit;
+        }
+
+        try {
+            $timesheet = Timesheet::findById($timesheetId);
+
+            if (!$timesheet) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Timesheet not found for rejection.'];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            // Security Check: Ensure timesheet belongs to supervised staff
+            $staffUser = User::findById($timesheet->staff_user_id);
+            if (!$staffUser || $staffUser->supervisor_id !== $supervisorId) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'You are not authorized to reject this timesheet.'];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            // Check if timesheet is in a state that can be rejected
+            $allowedStatusesForRejection = ['Pending', 'EditedBySupervisor', 'PendingStaffConfirmation', 'DisputedByStaff'];
+            if (!in_array($timesheet->status, $allowedStatusesForRejection)) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'This timesheet cannot be rejected at its current status: ' . $timesheet->status];
+                header('Location: /supervisor/timesheets/pending');
+                exit;
+            }
+
+            $timesheet->status = 'Rejected';
+            $timesheet->rejection_reason = $rejectionReason;
+            $timesheet->approver_user_id = $supervisorId; // The supervisor is the one actioning it
+            $timesheet->approved_at = null; // Clear any previous approval timestamp
+            // edited_by_supervisor_id and edited_at would remain if it was an edited timesheet being rejected.
+            // staff_dispute_reason would also remain if it was a disputed timesheet being rejected.
+
+            if ($timesheet->save()) {
+                $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'Timesheet (ID: '.$timesheetId.') rejected successfully.'];
+                // TODO: Create notification for staff member
+            } else {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Failed to reject timesheet. Please try again.'];
+            }
+        } catch (Exception $e) {
+            error_log("Error rejecting timesheet ID {$timesheetId} by supervisor ID {$supervisorId}: " . $e->getMessage());
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'An error occurred while rejecting the timesheet: ' . $e->getMessage()];
+        }
+
+        header('Location: /supervisor/timesheets/pending');
+        exit;
+    }
     public function edit(string $id): void
     {
         $this->enforceSupervisorAccess();
