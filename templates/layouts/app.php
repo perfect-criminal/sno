@@ -10,51 +10,80 @@ echo "</pre>";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($pageTitle ?? 'ShineO Application') ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f4f7f6; color: #333; }
-        .container { width: 90%; max-width: 1200px; margin: 20px auto; padding: 20px; background-color: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 5px;}
-        header { background-color: #007bff; color: white; padding: 15px 0; text-align: center; margin-bottom: 20px;}
-        header h1 { margin: 0; }
-        nav { background-color: #333; padding: 10px 0; text-align: center; }
-        nav a { color: white; margin: 0 15px; text-decoration: none; }
-        nav a:hover { text-decoration: underline; }
-        footer { text-align: center; padding: 20px 0; margin-top: 30px; color: #777; border-top: 1px solid #eee; }
-        .error-message { color: red; background-color: #ffebee; border: 1px solid #ef9a9a; padding: 10px; border-radius: 3px; margin-bottom: 15px; text-align: center;}
-        .success-message { color: green; background-color: #e8f5e9; border: 1px solid #a5d6a7; padding: 10px; border-radius: 3px; margin-bottom: 15px; text-align: center;}
+        body { font-family: sans-serif; background-color: #f8f9fa; } /* Adjusted for Bootstrap defaults */
+        /* Keep .container if you like its max-width and centering, Bootstrap has its own .container */
+        .app-container { width: 90%; max-width: 1200px; margin: 20px auto; padding: 0px; /* Let Bootstrap handle inner padding */}
+        header.app-header { background-color: #007bff; color: white; padding: 1rem 0; text-align: center; margin-bottom: 20px;}
+        header.app-header h1 { margin: 0; }
+        nav.app-nav { background-color: #343a40; padding: 0.5rem 0; text-align: center; } /* Bootstrap dark bg */
+        nav.app-nav a { color: rgba(255,255,255,.75); margin: 0 15px; text-decoration: none; }
+        nav.app-nav a:hover, nav.app-nav a.active { color: white; text-decoration: none; }
+        footer.app-footer { text-align: center; padding: 20px 0; margin-top: 30px; color: #6c757d; border-top: 1px solid #dee2e6; }
 
+        /* Flash message styling using Bootstrap alert classes (can be adapted) */
+        .alert-success { color: #0f5132; background-color: #d1e7dd; border-color: #badbcc; }
+        .alert-danger { color: #842029; background-color: #f8d7da; border-color: #f5c2c7; }
+        .alert { padding: 1rem; margin-bottom: 1rem; border: 1px solid transparent; border-radius: .25rem; }
     </style>
 </head>
 <body>
-<header>
+<header class="app-header">
     <h1>ShineO Management</h1>
 </header>
 
-<nav>
-    <a href="/">Home</a>
-    <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
-        <a href="/dashboard">Dashboard</a>
-        <?php if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 1): // Assuming 1 is Admin ?>
-            <a href="/admin/users">User Management</a>
-        <?php endif; ?>
-        <a href="/logout">Logout (<?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?>)</a>
-    <?php else: ?>
-        <a href="/login">Login</a>
-    <?php endif; ?>
+<nav class="app-nav navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">ShineO</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Home</a>
+                </li>
+                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <?php if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 1): // Assuming 1 is Admin ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/admin/users">User Management</a>
+                        </li>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </ul>
+            <ul class="navbar-nav">
+                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Logout (<?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?>)</a>
+                    </li>
+                <?php else: ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/login">Login</a>
+                    </li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </div>
 </nav>
 
-<div class="container">
+<main class="app-container container mt-4"> <?php // Added Bootstrap's container and mt-4 for margin ?>
     <?php if (isset($_SESSION['flash_message'])): ?>
-        <div class="<?= htmlspecialchars($_SESSION['flash_message']['type']) === 'success' ? 'success-message' : 'error-message' ?>">
+        <div class="alert <?= htmlspecialchars($_SESSION['flash_message']['type']) === 'success' ? 'alert-success' : 'alert-danger' ?>" role="alert">
             <?= htmlspecialchars($_SESSION['flash_message']['message']) ?>
         </div>
         <?php unset($_SESSION['flash_message']); ?>
     <?php endif; ?>
 
-    <?= $content ?? '' ?> </div>
+    <?= $content ?? '' ?> </main>
 
-<footer>
+<footer class="app-footer">
     <p>&copy; <?= date('Y') ?> ShineO Application. All rights reserved.</p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>

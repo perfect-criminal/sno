@@ -140,5 +140,89 @@ class User
         }
     }
 
+    public static function emailExists(string $email, ?int $excludeId = null): bool
+    {
+        $db = Connection::getInstance();
+        $sql = "SELECT id FROM users WHERE email = :email AND deleted_at IS NULL";
+        if ($excludeId !== null) {
+            $sql .= " AND id != :exclude_id";
+        }
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(':email', $email, PDO::PARAM_STR);
+        if ($excludeId !== null) {
+            $stmt->bindParam(':exclude_id', $excludeId, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        return $stmt->fetchColumn() !== false;
+    }
+
+    /**
+     * Save the current user object to the database (handles create/update).
+     * @return bool True on success, false on failure.
+     * @throws Exception
+     */
+    public function save(): bool
+    {
+        $db = Connection::getInstance();
+
+        // Default created_at and updated_at if not set (especially for new records)
+        if ($this->id === null && $this->created_at === null) {
+            $this->created_at = date('Y-m-d H:i:s');
+        }
+        if ($this->updated_at === null) {
+            $this->updated_at = date('Y-m-d H:i:s');
+        }
+
+
+        if ($this->id === null) { // Creating a new user
+            $sql = "INSERT INTO users (role_id, supervisor_id, first_name, last_name, email, password_hash, phone_number, address, pay_rate, is_active, created_at, updated_at) 
+                    VALUES (:role_id, :supervisor_id, :first_name, :last_name, :email, :password_hash, :phone_number, :address, :pay_rate, :is_active, :created_at, :updated_at)";
+            $stmt = $db->prepare($sql);
+            // Set created_at for new records if not already set by constructor from form
+            $this->created_at = $this->created_at ?? date('Y-m-d H:i:s');
+            $this->updated_at = $this->updated_at ?? date('Y-m-d H:i:s');
+
+        } else { // Updating an existing user
+            $this->updated_at = date('Y-m-d H:i:s'); // Always update timestamp on save
+            $sql = "UPDATE users SET 
+                        role_id = :role_id,
+                        supervisor_id = :supervisor_id,
+                        first_name = :first_name,
+                        last_name = :last_name,
+                        email = :email,
+                        password_hash = :password_hash, -- Be careful: only update if a new password is provided
+                        phone_number = :phone_number,
+                        address = :address,
+                        pay_rate = :pay_rate,
+                        is_active = :is_active,
+                        updated_at = :updated_at
+                    WHERE id = :id AND deleted_at IS NULL";
+            $stmt = $db->prepare($sql);
+            $stmt->bindParam(':id', $this->id, PDO::PARAM_INT);
+        }
+
+        // Bind common parameters
+        $stmt->bindParam(':role_id', $this->role_id, PDO::PARAM_INT);
+        $stmt->bindParam(':supervisor_id', $this->supervisor_id, PDO::PARAM_INT_OR_NULL); // Use PDO::PARAM_INT_OR_NULL if PHP >= 8.1 or handle null explicitly
+        $stmt->bindParam(':first_name', $this->first_name, PDO::PARAM_STR);
+        $stmt->bindParam(':last_name', $this->last_name, PDO::PARAM_STR);
+        $stmt->bindParam(':email', $this->email, PDO::PARAM_STR);
+        $stmt->bindParam(':password_hash', $this->password_hash, PDO::PARAM_STR); // Always bind, even if not changing for update (logic to change hash should be in controller)
+        $stmt->bindParam(':phone_number', $this->phone_number, PDO::PARAM_STR_OR_NULL);
+        $stmt->bindParam(':address', $this->address, PDO::PARAM_STR_OR_NULL);
+        $stmt->bindParam(':pay_rate', $this->pay_rate); // PDO infers type, or use PDO::PARAM_STR
+        $stmt->bindParam(':is_active', $this->is_active, PDO::PARAM_INT); // Store boolean as 0 or 1
+        $stmt->bindParam(':updated_at', $this->updated_at, PDO::PARAM_STR);
+        if ($this->id === null) { // Only bind created_at for new records
+            $stmt->bindParam(':created_at', $this->created_at, PDO::PARAM_STR);
+        }
+
+
+        $success = $stmt->execute();
+        if ($success && $this->id === null) {
+            $this->id = (int)$db->lastInsertId();
+        }
+        return $success;
+    }
     // Future methods: findById, save (create/update), delete (soft delete), etc.
 }

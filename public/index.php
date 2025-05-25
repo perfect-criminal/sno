@@ -29,6 +29,7 @@ use App\UserManagement\Controller\AuthController;
 use App\Core\View; // Make sure this is here
 use App\Admin\Controller\UserController as AdminUserController;
 
+
 // 5. Instantiate the Router
 $router = new Router();
 
@@ -71,6 +72,9 @@ $router->get('/login', [AuthController::class, 'showLoginForm']);
 $router->post('/login-process', [AuthController::class, 'handleLoginAttempt']);
 $router->get('/test-db-user', [AuthController::class, 'testDatabaseUserFetch']);
 $router->get('/logout', [AuthController::class, 'logout']);
+$router->get('/admin/users', [AdminUserController::class, 'index']);
+$router->get('/admin/users/create', [AdminUserController::class, 'create']); // <-- NEW: Show create form
+$router->post('/admin/users/store', [AdminUserController::class, 'store']);
 
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];

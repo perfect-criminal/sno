@@ -17,6 +17,7 @@
         table.admin-table tr:nth-child(even) { background-color: #f9f9f9; }
         table.admin-table .actions a { margin-right: 5px; text-decoration: none; }
     </style>
+
     <table class="admin-table">
         <thead>
         <tr>
