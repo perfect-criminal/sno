@@ -381,4 +381,103 @@ class TimesheetController
             exit;
         }
     }
+    public function resubmit(string $id): void
+    {
+        $this->enforceStaffAccess();
+        $timesheetId = (int)$id;
+        $staffId = $_SESSION['user_id'] ?? 0;
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /staff/timesheets/edit/' . $timesheetId);
+            exit;
+        }
+
+        $formData = $_POST;
+        $errors = [];
+
+        try {
+            $timesheet = Timesheet::findById($timesheetId);
+
+            if (!$timesheet || $timesheet->staff_user_id !== $staffId || $timesheet->status !== 'Rejected') {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'This timesheet cannot be resubmitted or was not found.'];
+                header('Location: /staff/timesheets');
+                exit;
+            }
+
+            // Validation (similar to store/update)
+            $isUnscheduled = isset($formData['is_unscheduled_shift']) && $formData['is_unscheduled_shift'] == '1';
+            $selectedSiteId = null;
+
+            if ($isUnscheduled) {
+                if (empty($formData['unscheduled_site_id'])) {
+                    $errors['unscheduled_site_id'] = 'Please select a site for the unscheduled shift.';
+                } else {
+                    $selectedSiteId = (int)$formData['unscheduled_site_id'];
+                }
+                if (empty(trim($formData['notes']))) {
+                    $errors['notes'] = 'Notes are required for unscheduled shifts.';
+                }
+            } else {
+                if (empty($formData['assigned_site_id'])) {
+                    $errors['assigned_site_id'] = 'Please select an assigned site.';
+                } else {
+                    $selectedSiteId = (int)$formData['assigned_site_id'];
+                }
+            }
+
+            if (empty($formData['shift_date'])) {
+                $errors['shift_date'] = 'Shift date is required.';
+            } else { /* ... (date validation as before) ... */ }
+
+            if (empty($formData['hours_worked'])) {
+                $errors['hours_worked'] = 'Hours worked are required.';
+            } elseif (!is_numeric($formData['hours_worked']) || $formData['hours_worked'] <= 0 || $formData['hours_worked'] > 24) {
+                $errors['hours_worked'] = 'Hours worked must be a positive number (max 24).';
+            }
+
+            if (!empty($errors)) {
+                $_SESSION['form_errors'] = $errors;
+                $_SESSION['form_data'] = $formData;
+                header('Location: /staff/timesheets/edit/' . $timesheetId);
+                exit;
+            }
+
+            // Update timesheet object with new data
+            $timesheet->site_id = $selectedSiteId;
+            $timesheet->shift_date = $formData['shift_date'];
+            $timesheet->hours_worked = (float)$formData['hours_worked'];
+            $timesheet->is_unscheduled_shift = $isUnscheduled;
+            $timesheet->notes = !empty($formData['notes']) ? trim($formData['notes']) : null;
+
+            // Reset for re-submission
+            $timesheet->status = 'Pending';
+            $timesheet->submitted_at = date('Y-m-d H:i:s'); // Update submission time
+            $timesheet->rejection_reason = null;
+            $timesheet->approver_user_id = null;
+            $timesheet->approved_at = null;
+            $timesheet->edited_by_supervisor_id = null;
+            $timesheet->edited_at = null;
+            $timesheet->original_hours_worked = null;
+            $timesheet->staff_dispute_reason = null;
+
+            if ($timesheet->save()) {
+                unset($_SESSION['form_data']);
+                unset($_SESSION['form_errors']);
+                $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'Timesheet successfully resubmitted and is pending approval.'];
+            } else {
+                $_SESSION['form_data'] = $formData;
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Failed to resubmit timesheet. Please try again.'];
+                header('Location: /staff/timesheets/edit/' . $timesheetId);
+                exit;
+            }
+        } catch (Exception $e) {
+            error_log("Error resubmitting timesheet ID {$timesheetId}: " . $e->getMessage());
+            $_SESSION['form_data'] = $formData ?? [];
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'An error occurred: ' . $e->getMessage()];
+            header('Location: /staff/timesheets/edit/' . $timesheetId);
+            exit;
+        }
+        header('Location: /staff/timesheets'); // Redirect to timesheet history
+        exit;
+    }
 }

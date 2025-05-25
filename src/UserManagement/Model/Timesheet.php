@@ -60,7 +60,6 @@ class Timesheet
         $isUnscheduledShiftInt = (int)$this->is_unscheduled_shift;
 
         if ($this->id === null) { // Creating a new timesheet (INSERT)
-            // ... (INSERT logic as previously defined - no changes needed here for this step) ...
             $this->submitted_at = $this->submitted_at ?? $nowForActions;
             $this->status = $this->status ?: 'Pending';
 
@@ -70,11 +69,11 @@ class Timesheet
                         (:staff_user_id, :site_id, :shift_date, :hours_worked, :is_unscheduled_shift, :notes, :status, :submitted_at)";
             $stmt = $db->prepare($sql);
             $stmt->bindParam(':staff_user_id', $this->staff_user_id, PDO::PARAM_INT);
-            $stmt->bindParam(':submitted_at', $this->submitted_at, PDO::PARAM_STR);
+            $stmt->bindParam(':submitted_at', $this->submitted_at, PDO::PARAM_STR); // This is set when object is prepared for INSERT
 
         } else { // Updating an existing timesheet (UPDATE)
-            // $this->updated_at is not a column in timesheets, specific action timestamps are used.
-            // edited_at, approved_at are set by controller actions.
+            // For a re-submission by staff, the controller will have updated submitted_at.
+            // For supervisor edits or approvals/rejections, other specific timestamps are set by the controller.
 
             $sql = "UPDATE timesheets SET 
                         site_id = :site_id, 
@@ -83,19 +82,26 @@ class Timesheet
                         is_unscheduled_shift = :is_unscheduled_shift, 
                         notes = :notes, 
                         status = :status, 
+                        
+                        -- Fields that might be set or cleared by actions:
+                        submitted_at = :submitted_at, -- This will be updated on staff re-submission
+                        approver_user_id = :approver_user_id,
+                        approved_at = :approved_at,
+                        rejection_reason = :rejection_reason,
+                        staff_dispute_reason = :staff_dispute_reason,
                         edited_by_supervisor_id = :edited_by_supervisor_id,
                         edited_at = :edited_at,
-                        original_hours_worked = :original_hours_worked,
-                        approver_user_id = :approver_user_id,      -- For approval action
-                        approved_at = :approved_at,            -- For approval action
-                        rejection_reason = :rejection_reason,    -- For rejection action
-                        staff_dispute_reason = :staff_dispute_reason -- For staff disagreement
-                        -- No generic 'updated_at' field
+                        original_hours_worked = :original_hours_worked
+                        -- No generic 'updated_at' column in this table as per schema
                     WHERE id = :id AND deleted_at IS NULL";
             $stmt = $db->prepare($sql);
             $stmt->bindParam(':id', $this->id, PDO::PARAM_INT);
 
             // Bind fields specific to update that might be null or set by actions
+            // `submitted_at` is now part of update for re-submissions
+            $stmt->bindParam(':submitted_at', $this->submitted_at, PDO::PARAM_STR);
+
+
             if ($this->edited_by_supervisor_id === null) { $stmt->bindValue(':edited_by_supervisor_id', null, PDO::PARAM_NULL); }
             else { $stmt->bindParam(':edited_by_supervisor_id', $this->edited_by_supervisor_id, PDO::PARAM_INT); }
 
@@ -105,7 +111,6 @@ class Timesheet
             if ($this->original_hours_worked === null) { $stmt->bindValue(':original_hours_worked', null, PDO::PARAM_NULL); }
             else { $stmt->bindParam(':original_hours_worked', $this->original_hours_worked); }
 
-            // Fields for approve/reject/dispute actions
             if ($this->approver_user_id === null) { $stmt->bindValue(':approver_user_id', null, PDO::PARAM_NULL); }
             else { $stmt->bindParam(':approver_user_id', $this->approver_user_id, PDO::PARAM_INT); }
 
@@ -115,11 +120,11 @@ class Timesheet
             if ($this->rejection_reason === null) { $stmt->bindValue(':rejection_reason', null, PDO::PARAM_NULL); }
             else { $stmt->bindParam(':rejection_reason', $this->rejection_reason, PDO::PARAM_STR); }
 
-            if ($this->staff_dispute_reason === null) { $stmt->bindValue(':staff_dispute_reason', null, PDO::PARAM_NULL); } // <-- BIND NEW FIELD
+            if ($this->staff_dispute_reason === null) { $stmt->bindValue(':staff_dispute_reason', null, PDO::PARAM_NULL); }
             else { $stmt->bindParam(':staff_dispute_reason', $this->staff_dispute_reason, PDO::PARAM_STR); }
         }
 
-        // Common parameters for both INSERT and UPDATE (that are always set on the object)
+        // Common parameters for both INSERT and UPDATE
         $stmt->bindParam(':site_id', $this->site_id, PDO::PARAM_INT);
         $stmt->bindParam(':shift_date', $this->shift_date, PDO::PARAM_STR);
         $stmt->bindParam(':hours_worked', $this->hours_worked);

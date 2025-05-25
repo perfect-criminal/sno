@@ -106,6 +106,8 @@ $router->get('/staff/timesheets', [StaffTimesheetController::class, 'index']);
 $router->get('/staff/timesheets/review/{id}', [StaffTimesheetController::class, 'review']);
 $router->post('/staff/timesheets/agree/{id}', [StaffTimesheetController::class, 'agreeToEdit']);
 $router->post('/staff/timesheets/disagree/{id}', [StaffTimesheetController::class, 'disagreeWithEdit']);
+$router->get('/staff/timesheets/edit/{id}', [StaffTimesheetController::class, 'edit']);
+$router->post('/staff/timesheets/resubmit/{id}', [StaffTimesheetController::class, 'resubmit']);
 // Supervisor Routes
 $router->get('/supervisor/dashboard', [SupervisorDashboardController::class, 'index']);
 $router->get('/supervisor/timesheets/pending', [SupervisorTimesheetController::class, 'pending']);
