@@ -40,8 +40,11 @@
                 <td><?= $user->is_active ? 'Active' : 'Inactive' ?></td>
                 <td><?= htmlspecialchars($user->created_at ? date('Y-m-d H:i', strtotime($user->created_at)) : 'N/A') ?></td>
                 <td class="actions">
-                    <a href="/admin/users/edit/<?= $user->id ?>">Edit</a> <?php // Placeholder link ?>
-                    <a href="/admin/users/delete/<?= $user->id ?>" onclick="return confirm('Are you sure you want to delete this user?');">Delete</a> <?php // Placeholder link ?>
+                    <a href="/admin/users/edit/<?= htmlspecialchars($user->id) ?>" class="btn btn-warning btn-sm">Edit</a>
+                    <form action="/admin/users/delete" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                        <input type="hidden" name="user_id" value="<?= htmlspecialchars($user->id) ?>">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
                 </td>
             </tr>
         <?php endforeach; ?>

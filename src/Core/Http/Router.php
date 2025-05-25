@@ -46,32 +46,40 @@ class Router
 
     public function dispatch(string $requestMethod, string $requestUri): void
     {
-        // --- BEGIN DEBUGGING LINES ---
-       // echo "DEBUG: Router attempting to dispatch URI: '{$requestUri}' with Method: '{$requestMethod}'<br>";
-       // echo "DEBUG: Registered Routes:<pre>";
-      //  print_r($this->routes);
-        //echo "</pre><hr>";
-        // --- END DEBUGGING LINES ---
+        // Remove existing debug lines if you haven't already
+        // echo "DEBUG: Router attempting to dispatch URI: '{$requestUri}' with Method: '{$requestMethod}'<br>";
+        // echo "DEBUG: Registered Routes:<pre>"; print_r($this->routes); echo "</pre><hr>";
 
         foreach ($this->routes as $route) {
-            // Simple direct path matching (no dynamic parameters like /users/{id} yet)
-            if ($route['method'] === strtoupper($requestMethod) && $route['path'] === $requestUri) {
+            if ($route['method'] !== strtoupper($requestMethod)) {
+                continue; // Skip if method doesn't match
+            }
+
+            // Convert route path with placeholders to a regex
+            // Example: /admin/users/{id} becomes #^/admin/users/([a-zA-Z0-9_]+)$#
+            // Example: /admin/users/{id}/sub/{subid} becomes #^/admin/users/([a-zA-Z0-9_]+)/sub/([a-zA-Z0-9_]+)$#
+            $pattern = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '([a-zA-Z0-9_]+)', $route['path']);
+            $regex = "#^" . $pattern . "$#";
+
+            $matches = [];
+            if (preg_match($regex, $requestUri, $matches)) {
+                array_shift($matches); // Remove the full match, keep only captured groups (parameters)
+
                 $handler = $route['handler'];
 
-                if (is_callable($handler) && !is_array($handler)) { // Is it a Closure and not an array?
-                    call_user_func($handler);
+                if (is_callable($handler) && !is_array($handler)) { // Closure
+                    call_user_func_array($handler, $matches); // Pass matched params to closure
                     return;
                 }
 
-                // Is it a [Controller::class, 'methodName'] array?
-                if (is_array($handler) && count($handler) === 2) {
+                if (is_array($handler) && count($handler) === 2) { // [Controller::class, 'methodName']
                     [$controllerClass, $methodName] = $handler;
 
                     if (class_exists($controllerClass)) {
-                        $controllerInstance = new $controllerClass(); // Basic instantiation
+                        $controllerInstance = new $controllerClass();
                         if (method_exists($controllerInstance, $methodName)) {
-                            // Call the method directly on the instance
-                            $controllerInstance->$methodName(); // <--- THIS IS THE FIX
+                            // Call the method directly on the instance, passing parameters
+                            call_user_func_array([$controllerInstance, $methodName], $matches);
                             return;
                         } else {
                             throw new Exception("Method {$methodName} not found in controller {$controllerClass}");
@@ -80,11 +88,9 @@ class Router
                         throw new Exception("Controller class {$controllerClass} not found");
                     }
                 }
-                // If handler is not callable and not a valid controller array
                 throw new Exception("Invalid handler for route {$requestMethod} {$requestUri}");
             }
         }
-        // No route matched
         http_response_code(404);
         throw new Exception("No route found for {$requestMethod} {$requestUri}");
     }

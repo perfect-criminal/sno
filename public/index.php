@@ -72,10 +72,13 @@ $router->get('/login', [AuthController::class, 'showLoginForm']);
 $router->post('/login-process', [AuthController::class, 'handleLoginAttempt']);
 $router->get('/test-db-user', [AuthController::class, 'testDatabaseUserFetch']);
 $router->get('/logout', [AuthController::class, 'logout']);
+// Admin Routes
 $router->get('/admin/users', [AdminUserController::class, 'index']);
-$router->get('/admin/users/create', [AdminUserController::class, 'create']); // <-- NEW: Show create form
+$router->get('/admin/users/create', [AdminUserController::class, 'create']);
 $router->post('/admin/users/store', [AdminUserController::class, 'store']);
-
+$router->get('/admin/users/edit/{id}', [AdminUserController::class, 'edit']);
+$router->post('/admin/users/update/{id}', [AdminUserController::class, 'update']);
+$router->post('/admin/users/delete', [AdminUserController::class, 'delete']);
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];
 // Basic sanitization: remove query string from URI for routing
