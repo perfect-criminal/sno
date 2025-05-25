@@ -45,14 +45,42 @@ echo "</pre>";
                     <a class="nav-link" href="/">Home</a>
                 </li>
                 <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
+                    <?php
+                    // Determine the correct dashboard URL based on role
+                    $dashboardUrl = '/dashboard'; // Generic fallback for roles not explicitly handled or if role_id is missing
+                    if (isset($_SESSION['user_role_id'])) { // Check if user_role_id is set
+                        if ($_SESSION['user_role_id'] === 1) { // Admin
+                            // Admins might go to a specific admin overview or just use their sections
+                            // For now, let's keep it simple or point to a generic admin landing page if you create one
+                            // $dashboardUrl = '/admin/overview'; // Example
+                            // Or let them use the User Management as their primary "dashboard"
+                            $dashboardUrl = '/admin/users'; // Or keep as /dashboard if you have a generic admin dashboard
+                        } elseif ($_SESSION['user_role_id'] === 2) { // Staff
+                            $dashboardUrl = '/staff/dashboard';
+                        } elseif ($_SESSION['user_role_id'] === 3) { // Supervisor
+                            $dashboardUrl = '/supervisor/dashboard';
+                        }
+                        // Add more roles here (e.g., Payroll Team)
+                        // elseif ($_SESSION['user_role_id'] === 4) { // Payroll
+                        //    $dashboardUrl = '/payroll/dashboard';
+                        // }
+                    }
+                    ?>
                     <li class="nav-item">
-                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                        <a class="nav-link" href="<?= htmlspecialchars($dashboardUrl) ?>">Dashboard</a>
                     </li>
-                    <?php if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 1): // Assuming 1 is Admin ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/admin/users">User Management</a>
-                        </li>
-                    <?php endif; ?>
+                <?php endif; ?>
+
+                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 1): // Admin specific links ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/users">Users</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/companies">Companies</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/sites">Sites</a>
+                    </li>
                 <?php endif; ?>
             </ul>
             <ul class="navbar-nav">
@@ -70,7 +98,7 @@ echo "</pre>";
     </div>
 </nav>
 
-<main class="app-container container mt-4"> <?php // Added Bootstrap's container and mt-4 for margin ?>
+<main class="app-container container mt-4">
     <?php if (isset($_SESSION['flash_message'])): ?>
         <div class="alert <?= htmlspecialchars($_SESSION['flash_message']['type']) === 'success' ? 'alert-success' : 'alert-danger' ?>" role="alert">
             <?= htmlspecialchars($_SESSION['flash_message']['message']) ?>
@@ -78,7 +106,8 @@ echo "</pre>";
         <?php unset($_SESSION['flash_message']); ?>
     <?php endif; ?>
 
-    <?= $content ?? '' ?> </main>
+    <?= $content ?? '' ?>
+</main>
 
 <footer class="app-footer">
     <p>&copy; <?= date('Y') ?> ShineO Application. All rights reserved.</p>

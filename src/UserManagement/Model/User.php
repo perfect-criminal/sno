@@ -224,4 +224,46 @@ class User
         }
         return $success;
     }
+    /**
+     * Find all active staff members assigned to a specific supervisor.
+     * Assumes Role ID 2 is 'Staff'.
+     *
+     * @param int $supervisorId The ID of the supervisor.
+     * @return User[] An array of User objects (staff members).
+     * @throws Exception
+     */
+    public static function findStaffBySupervisorId(int $supervisorId): array
+    {
+        if ($supervisorId <= 0) {
+            return [];
+        }
+
+        $db = Connection::getInstance();
+        try {
+            // Assuming Role ID 2 is for 'Staff'
+            // We also fetch the role_name for completeness, though it should always be 'Staff' here
+            $sql = "SELECT u.*, r.role_name 
+                    FROM users u
+                    LEFT JOIN roles r ON u.role_id = r.id
+                    WHERE u.supervisor_id = :supervisor_id 
+                      AND u.role_id = 2 -- Ensure we are only fetching Staff
+                      AND u.deleted_at IS NULL
+                      AND u.is_active = 1 -- Optionally, only show active staff
+                    ORDER BY u.last_name ASC, u.first_name ASC";
+
+            $stmt = $db->prepare($sql);
+            $stmt->bindParam(':supervisor_id', $supervisorId, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $staffData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $staffMembers = [];
+            foreach ($staffData as $staffMemberData) {
+                $staffMembers[] = new self($staffMemberData);
+            }
+            return $staffMembers;
+        } catch (Exception $e) {
+            error_log("Error in User::findStaffBySupervisorId for supervisor ID {$supervisorId}: " . $e->getMessage());
+            throw new Exception("Database query failed while fetching assigned staff. " . $e->getMessage(), 0, $e);
+        }
+    }
 }

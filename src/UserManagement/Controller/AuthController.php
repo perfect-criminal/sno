@@ -97,16 +97,21 @@ HTML;
                     $_SESSION['user_role_id'] = $user->role_id;
                     $_SESSION['user_name'] = $user->getFullName();
                     $_SESSION['logged_in'] = true;
+                    unset($_SESSION['attempted_email']);
+                    unset($_SESSION['flash_message']);
 
-                    // Clear any previous login errors
-                    unset($_SESSION['login_error']);
+                    $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'Login successful! Welcome back.'];
 
-                    // Redirect to the dashboard
-                    header('Location: /dashboard');
-                    exit; // Important to prevent further script execution after redirect
-                } else {
-                    $_SESSION['login_error'] = 'Login failed: Incorrect password.';
-                    header('Location: /login');
+// Role-based redirect
+                    if ($user->role_id === 1) { // Admin
+                        header('Location: /admin/users'); // Or /admin/dashboard if you create one
+                    } elseif ($user->role_id === 2) { // Staff
+                        header('Location: /staff/dashboard');
+                    } elseif ($user->role_id === 3) { // Supervisor
+                        header('Location: /supervisor/dashboard'); // Placeholder for now
+                    } else {
+                        header('Location: /dashboard'); // Generic fallback or for other roles
+                    }
                     exit;
                 }
             } else {

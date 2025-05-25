@@ -28,7 +28,12 @@ use App\Core\Http\Router;
 use App\UserManagement\Controller\AuthController;
 use App\Core\View; // Make sure this is here
 use App\Admin\Controller\UserController as AdminUserController;
-
+use App\Admin\Controller\CompanyController as AdminCompanyController;
+use App\Admin\Controller\SiteController as AdminSiteController;
+use App\Staff\Controller\DashboardController as StaffDashboardController;
+use App\Staff\Controller\TimesheetController as StaffTimesheetController;
+use App\Supervisor\Controller\DashboardController as SupervisorDashboardController;
+use App\Supervisor\Controller\TimesheetController as SupervisorTimesheetController;
 
 // 5. Instantiate the Router
 $router = new Router();
@@ -72,13 +77,41 @@ $router->get('/login', [AuthController::class, 'showLoginForm']);
 $router->post('/login-process', [AuthController::class, 'handleLoginAttempt']);
 $router->get('/test-db-user', [AuthController::class, 'testDatabaseUserFetch']);
 $router->get('/logout', [AuthController::class, 'logout']);
-// Admin Routes
+// Admin Users Routes
 $router->get('/admin/users', [AdminUserController::class, 'index']);
 $router->get('/admin/users/create', [AdminUserController::class, 'create']);
 $router->post('/admin/users/store', [AdminUserController::class, 'store']);
 $router->get('/admin/users/edit/{id}', [AdminUserController::class, 'edit']);
 $router->post('/admin/users/update/{id}', [AdminUserController::class, 'update']);
 $router->post('/admin/users/delete', [AdminUserController::class, 'delete']);
+// Admin Company Routes
+$router->get('/admin/companies', [AdminCompanyController::class, 'index']);
+$router->get('/admin/companies/create', [AdminCompanyController::class, 'create']);
+$router->post('/admin/companies/store', [AdminCompanyController::class, 'store']);
+$router->get('/admin/companies/edit/{id}', [AdminCompanyController::class, 'edit']);
+$router->post('/admin/companies/update/{id}', [AdminCompanyController::class, 'update']);
+$router->post('/admin/companies/delete', [AdminCompanyController::class, 'delete']);
+// Admin Site Routes
+$router->get('/admin/sites', [AdminSiteController::class, 'index']);
+$router->get('/admin/sites/create', [AdminSiteController::class, 'create']);
+$router->post('/admin/sites/store', [AdminSiteController::class, 'store']);
+$router->get('/admin/sites/edit/{id}', [AdminSiteController::class, 'edit']);
+$router->post('/admin/sites/update/{id}', [AdminSiteController::class, 'update']);
+$router->post('/admin/sites/delete', [AdminSiteController::class, 'delete']);
+// Staff Routes
+$router->get('/staff/dashboard', [StaffDashboardController::class, 'index']);
+$router->get('/staff/timesheets/create', [StaffTimesheetController::class, 'create']);
+$router->post('/staff/timesheets/store', [StaffTimesheetController::class, 'store']);
+$router->get('/staff/timesheets', [StaffTimesheetController::class, 'index']);
+$router->get('/staff/timesheets/review/{id}', [StaffTimesheetController::class, 'review']);
+$router->post('/staff/timesheets/agree/{id}', [StaffTimesheetController::class, 'agreeToEdit']);
+$router->post('/staff/timesheets/disagree/{id}', [StaffTimesheetController::class, 'disagreeWithEdit']);
+// Supervisor Routes
+$router->get('/supervisor/dashboard', [SupervisorDashboardController::class, 'index']);
+$router->get('/supervisor/timesheets/pending', [SupervisorTimesheetController::class, 'pending']);
+$router->get('/supervisor/timesheets/edit/{id}', [SupervisorTimesheetController::class, 'edit']);
+$router->post('/supervisor/timesheets/update/{id}', [SupervisorTimesheetController::class, 'update']);
+$router->get('/supervisor/timesheets/disputed', [SupervisorTimesheetController::class, 'disputedList']);
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];
 // Basic sanitization: remove query string from URI for routing
