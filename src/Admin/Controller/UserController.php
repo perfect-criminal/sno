@@ -4,7 +4,7 @@ namespace App\Admin\Controller;
 
 use App\Core\View;
 use App\UserManagement\Model\User;
-use App\UserManagement\Model\Role; // <-- ADD THIS to use the Role model
+use App\UserManagement\Model\Role;
 use Exception;
 
 class UserController
@@ -27,7 +27,7 @@ class UserController
     {
         $this->enforceAdmin();
         try {
-            $users = User::findAll();
+            $users = User::findAll(); // User::findAll() should fetch role_name as well
             View::render('admin/users/index', [
                 'pageTitle' => 'Manage Users',
                 'users' => $users
@@ -35,7 +35,7 @@ class UserController
         } catch (Exception $e) {
             error_log("Error in UserController::index: " . $e->getMessage());
             $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Could not load user data.'];
-            View::render('error/generic', ['pageTitle' => 'Error', 'errorMessage' => $_SESSION['flash_message']['message']], 'app');
+            View::render('error/generic', ['pageTitle' => 'Error', 'errorMessage' => $_SESSION['flash_message']['message'] ?? $e->getMessage()], 'app');
         }
     }
 
@@ -46,18 +46,31 @@ class UserController
     {
         $this->enforceAdmin();
         try {
-            $roles = Role::findAll(); // Fetch all roles for the dropdown
+            $roles = Role::findAll();
+
+            // Fetch potential supervisors (active users with 'Supervisor' role)
+            // For more efficiency, consider adding User::findAllByRoleId(3) to your User model
+            $allUsers = User::findAll();
+            $supervisors = [];
+            foreach ($allUsers as $potentialSupervisor) {
+                if ($potentialSupervisor->role_id === 3 && $potentialSupervisor->is_active) {
+                    $supervisors[] = $potentialSupervisor;
+                }
+            }
+
             View::render('admin/users/create', [
                 'pageTitle' => 'Create New User',
                 'roles' => $roles,
-                'user_data' => [], // For pre-filling form on error, empty for create
+                'supervisors' => $supervisors, // Pass supervisors to the view
+                'user_data' => $_SESSION['form_data'] ?? [],
                 'errors' => $_SESSION['form_errors'] ?? []
             ], 'app');
-            unset($_SESSION['form_errors']); // Clear errors after displaying
+            unset($_SESSION['form_errors']);
+            unset($_SESSION['form_data']);
         } catch (Exception $e) {
             error_log("Error in UserController::create: " . $e->getMessage());
             $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Could not load user creation form.'];
-            header('Location: /admin/users'); // Redirect to user list on error
+            header('Location: /admin/users');
             exit;
         }
     }
@@ -67,69 +80,51 @@ class UserController
      */
     public function store(): void
     {
-        // --- BEGIN DEBUGGING ---
-        echo "<pre>UserController::store() method reached.\n";
-        echo "POST data received:\n";
-        var_dump($_POST);
-        echo "Session form_errors before processing:\n";
-        var_dump($_SESSION['form_errors'] ?? null);
-        echo "Session form_data before processing:\n";
-        var_dump($_SESSION['form_data'] ?? null);
-        echo "</pre><hr>";
-        // --- END DEBUGGING ---
-
         $this->enforceAdmin();
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            // This should ideally not be reached if routing is correct for POST only
-            echo "DEBUG: store() called with non-POST method. Redirecting to create form.<br>";
             header('Location: /admin/users/create');
             exit;
         }
 
-        // --- Basic Validation (expand this later) ---
         $errors = [];
-        $formData = $_POST; // Keep a copy of POST data for potential pre-filling
+        $formData = $_POST;
 
+        // Required fields validation
         $requiredFields = ['first_name', 'last_name', 'email', 'password', 'confirm_password', 'role_id'];
         foreach ($requiredFields as $field) {
             if (empty($formData[$field])) {
                 $errors[$field] = ucfirst(str_replace('_', ' ', $field)) . ' is required.';
             }
         }
-        // ... (rest of your validation logic: email format, password match, emailExists) ...
-        // As provided in the previous step
 
-        if (!empty($_POST['email']) && !filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
+        if (!empty($formData['email']) && !filter_var($formData['email'], FILTER_VALIDATE_EMAIL)) {
             $errors['email'] = 'Invalid email format.';
         }
 
-        if (!empty($_POST['password']) && $_POST['password'] !== $_POST['confirm_password']) {
+        if (!empty($formData['password']) && $formData['password'] !== $formData['confirm_password']) {
             $errors['confirm_password'] = 'Passwords do not match.';
         }
 
-        if (!empty($_POST['email']) && !isset($errors['email']) && User::emailExists($_POST['email'])) {
+        if (!empty($formData['email']) && !isset($errors['email']) && User::emailExists(trim($formData['email']))) {
             $errors['email'] = 'This email address is already registered.';
         }
 
+        // Validate supervisor_id if provided
+        $supervisorId = !empty($formData['supervisor_id']) ? (int)$formData['supervisor_id'] : null;
+        if ($supervisorId !== null) {
+            $supervisorUser = User::findById($supervisorId);
+            if (!$supervisorUser || $supervisorUser->role_id !== 3) { // Assuming role 3 is Supervisor
+                $errors['supervisor_id'] = 'Invalid supervisor selected.';
+            }
+        }
 
         if (!empty($errors)) {
             $_SESSION['form_errors'] = $errors;
-            $_SESSION['form_data'] = $formData; // Use the copy we made
-            echo "DEBUG: Validation errors found. Redirecting back to create form.<br>";
-            echo "<pre>Errors:\n"; var_dump($errors); echo "</pre>";
-            // header('Location: /admin/users/create'); // Temporarily comment out redirect to see debug
-            // exit;
-            // For now, let's allow the script to continue to see if it reaches the view part if create was called next
-            // But actually, it should redirect. To see errors on the form, the create() method must handle $_SESSION['form_errors']
-            // The redirect is correct. The create() method should display errors from session.
+            $_SESSION['form_data'] = $formData;
             header('Location: /admin/users/create');
             exit;
         }
-        // --- End Basic Validation ---
-
-        // If validation passes:
-        echo "DEBUG: Validation passed. Attempting to save user.<br>";
 
         try {
             $user = new User();
@@ -139,40 +134,105 @@ class UserController
             $user->password_hash = password_hash($formData['password'], PASSWORD_DEFAULT);
             $user->role_id = (int)$formData['role_id'];
             $user->is_active = isset($formData['is_active']) ? 1 : 0;
-            // supervisor_id and pay_rate are not in $requiredFields, handle them carefully
-            $user->supervisor_id = !empty($formData['supervisor_id']) ? (int)$formData['supervisor_id'] : null;
             $user->pay_rate = !empty($formData['pay_rate']) ? (float)$formData['pay_rate'] : null;
+            $user->supervisor_id = $supervisorId; // Assign validated supervisor_id
 
-
-            if ($user->save()) {
-                echo "DEBUG: User save() method returned true.<br>";
-                unset($_SESSION['form_data']); // Clear form data on success
-                unset($_SESSION['form_errors']); // Clear any potential stale errors
+            if ($user->save()) { // Assumes User model has a working save() method
+                unset($_SESSION['form_data']);
+                unset($_SESSION['form_errors']);
                 $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'User created successfully!'];
                 header('Location: /admin/users');
-                exit;
             } else {
-                echo "DEBUG: User save() method returned false.<br>";
                 $_SESSION['form_data'] = $formData;
-                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Failed to create user (save method returned false). Please try again.'];
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Failed to create user. Please try again.'];
                 header('Location: /admin/users/create');
-                exit;
             }
         } catch (Exception $e) {
             error_log("Error in UserController::store: " . $e->getMessage());
-            echo "DEBUG: Exception caught during save: " . $e->getMessage() . "<br>";
             $_SESSION['form_data'] = $formData;
-            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'An error occurred while creating the user. ' . $e->getMessage()];
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'An error occurred while creating the user: ' . $e->getMessage()];
             header('Location: /admin/users/create');
+        }
+        exit;
+    }
+
+    /**
+     * Display the form to edit an existing user.
+     * @param string $id The ID of the user to edit
+     */
+    public function edit(string $id): void
+    {
+        $this->enforceAdmin();
+        $userId = (int)$id;
+
+        try {
+            $userToEdit = User::findById($userId); // Changed variable name
+            if (!$userToEdit) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'User not found.'];
+                header('Location: /admin/users');
+                exit;
+            }
+
+            $roles = Role::findAll();
+
+            // Fetch potential supervisors
+            $allUsers = User::findAll();
+            $supervisors = [];
+            foreach ($allUsers as $potentialSupervisor) {
+                if ($potentialSupervisor->id !== $userId && // Cannot be their own supervisor
+                    $potentialSupervisor->role_id === 3 &&   // Must have Supervisor role (ID 3)
+                    $potentialSupervisor->is_active) {       // Must be an active user
+                    $supervisors[] = $potentialSupervisor;
+                }
+            }
+
+            // Use $userToEdit for pre-filling, not $form_data unless there was a previous error on THIS edit attempt
+            $formDataForView = $_SESSION['form_data'] ?? (array)$userToEdit;
+            // Ensure properties are mapped correctly if (array)$userToEdit is used
+            // For example, if $userToEdit->getFullName() is a method, it won't be in (array)$userToEdit
+            // It's safer to pass the object and access properties/methods in the view
+            // However, for sticky forms, $_SESSION['form_data'] is usually just $_POST
+            // Let's refine $form_data to be more consistent for the view.
+            // If $_SESSION['form_data'] exists, it means we are returning from a validation error on THIS form.
+            // Otherwise, populate from $userToEdit.
+            $currentFormData = $_SESSION['form_data'] ?? [
+                'first_name' => $userToEdit->first_name,
+                'last_name' => $userToEdit->last_name,
+                'email' => $userToEdit->email,
+                'role_id' => $userToEdit->role_id,
+                'supervisor_id' => $userToEdit->supervisor_id,
+                'pay_rate' => $userToEdit->pay_rate,
+                'is_active' => $userToEdit->is_active,
+                'phone_number' => $userToEdit->phone_number,
+                'address' => $userToEdit->address
+                // Do not include password_hash here
+            ];
+
+
+            View::render('admin/users/edit', [
+                'pageTitle' => 'Edit User: ' . htmlspecialchars($userToEdit->getFullName()),
+                'userToEdit' => $userToEdit,       // Pass the original user object
+                'roles' => $roles,
+                'supervisors' => $supervisors, // Pass supervisors to the view
+                'form_data' => $currentFormData, // For sticky form fields
+                'errors' => $_SESSION['form_errors'] ?? []
+            ], 'app');
+            unset($_SESSION['form_errors']);
+            unset($_SESSION['form_data']);
+
+        } catch (Exception $e) {
+            error_log("Error in UserController::edit for user ID {$userId}: " . $e->getMessage());
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Could not load user edit form. Please try again.'];
+            header('Location: /admin/users');
             exit;
         }
     }
 
     /**
      * Update an existing user's details in the database.
-     * @param string $id The ID of the user to update (from URL parameter)
+     * @param string $id The ID of the user to update
      */
-    public function update(string $id): void  // <--- MAKE SURE THIS METHOD EXISTS EXACTLY LIKE THIS
+    public function update(string $id): void
     {
         $this->enforceAdmin();
         $userId = (int)$id;
@@ -182,18 +242,17 @@ class UserController
             exit;
         }
 
-        // Fetch the existing user to update
-        $user = User::findById($userId);
-        if (!$user) {
+        $userToUpdate = User::findById($userId); // Changed variable name
+        if (!$userToUpdate) {
             $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'User not found for update.'];
             header('Location: /admin/users');
             exit;
         }
 
-        // --- Validation ---
         $errors = [];
         $formData = $_POST;
 
+        // Required fields validation
         $requiredFields = ['first_name', 'last_name', 'email', 'role_id'];
         foreach ($requiredFields as $field) {
             if (empty($formData[$field])) {
@@ -205,15 +264,32 @@ class UserController
             $errors['email'] = 'Invalid email format.';
         }
 
-        if (!empty($formData['email']) && $formData['email'] !== $user->email && User::emailExists($formData['email'], $userId)) {
+        // Check if email already exists for another user
+        if (!empty($formData['email']) && strtolower(trim($formData['email'])) !== strtolower($userToUpdate->email) && User::emailExists(trim($formData['email']), $userId)) {
             $errors['email'] = 'This email address is already registered by another user.';
         }
 
+        // Password validation (only if new password is provided)
         if (!empty($formData['password'])) {
             if ($formData['password'] !== $formData['confirm_password']) {
                 $errors['confirm_password'] = 'New passwords do not match.';
             }
+            // Add password strength validation here if desired
         }
+
+        // Validate supervisor_id if provided
+        $supervisorId = !empty($formData['supervisor_id']) ? (int)$formData['supervisor_id'] : null;
+        if ($supervisorId !== null) {
+            if ($supervisorId === $userId) { // User cannot be their own supervisor
+                $errors['supervisor_id'] = 'User cannot be their own supervisor.';
+            } else {
+                $supervisorUser = User::findById($supervisorId);
+                if (!$supervisorUser || $supervisorUser->role_id !== 3) { // Assuming role 3 is Supervisor
+                    $errors['supervisor_id'] = 'Invalid supervisor selected.';
+                }
+            }
+        }
+
 
         if (!empty($errors)) {
             $_SESSION['form_errors'] = $errors;
@@ -221,25 +297,26 @@ class UserController
             header('Location: /admin/users/edit/' . $userId);
             exit;
         }
-        // --- End Validation ---
 
-        $user->first_name = trim($formData['first_name']);
-        $user->last_name = trim($formData['last_name']);
-        $user->email = trim($formData['email']);
-        $user->role_id = (int)$formData['role_id'];
-        $user->is_active = isset($formData['is_active']) ? 1 : 0;
+        // Update user object properties
+        $userToUpdate->first_name = trim($formData['first_name']);
+        $userToUpdate->last_name = trim($formData['last_name']);
+        $userToUpdate->email = trim($formData['email']);
+        $userToUpdate->role_id = (int)$formData['role_id'];
+        $userToUpdate->is_active = isset($formData['is_active']) ? 1 : 0;
+        $userToUpdate->phone_number = !empty($formData['phone_number']) ? trim($formData['phone_number']) : null;
+        $userToUpdate->address = !empty($formData['address']) ? trim($formData['address']) : null;
+        $userToUpdate->pay_rate = !empty($formData['pay_rate']) ? (float)$formData['pay_rate'] : null;
+        $userToUpdate->supervisor_id = $supervisorId; // Assign validated supervisor_id
 
-        $user->supervisor_id = !empty($formData['supervisor_id']) ? (int)$formData['supervisor_id'] : null;
-        $user->phone_number = !empty($formData['phone_number']) ? trim($formData['phone_number']) : null;
-        $user->address = !empty($formData['address']) ? trim($formData['address']) : null;
-        $user->pay_rate = !empty($formData['pay_rate']) ? (float)$formData['pay_rate'] : null;
-
+        // Handle password update
         if (!empty($formData['password'])) {
-            $user->password_hash = password_hash($formData['password'], PASSWORD_DEFAULT);
+            $userToUpdate->password_hash = password_hash($formData['password'], PASSWORD_DEFAULT);
         }
+        // If password field is empty, $userToUpdate->password_hash retains its original value
 
         try {
-            if ($user->save()) {
+            if ($userToUpdate->save()) { // Assumes User model has a working save() method
                 unset($_SESSION['form_data']);
                 unset($_SESSION['form_errors']);
                 $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'User updated successfully!'];
@@ -257,9 +334,7 @@ class UserController
         }
         exit;
     }
-    /**
-     * Handle the soft deletion of a user.
-     */
+
     public function delete(): void
     {
         $this->enforceAdmin();
@@ -273,7 +348,10 @@ class UserController
         $userId = (int)$_POST['user_id'];
 
         try {
-            if (User::softDelete($userId)) {
+            // Add a check: Cannot delete own account (logged in admin)
+            if ($userId === ($_SESSION['user_id'] ?? null)) {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'You cannot delete your own account.'];
+            } elseif (User::softDelete($userId)) { // Assumes User model has softDelete
                 $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'User soft deleted successfully.'];
             } else {
                 $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Failed to delete user or user already deleted.'];
@@ -286,103 +364,7 @@ class UserController
         header('Location: /admin/users');
         exit;
     }
-    public function edit(string $id): void
-    {
-        $this->enforceAdmin();
-        $userId = (int)$id;
 
-        try {
-            $user = User::findById($userId);
-            if (!$user) {
-                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'User not found.'];
-                header('Location: /admin/users');
-                exit;
-            }
-
-            $roles = Role::findAll();
-
-            // This part is likely not reached if the error message is "Could not load user edit form"
-            View::render('admin/users/edit', [
-                'pageTitle' => 'Edit User: ' . htmlspecialchars($user->getFullName()),
-                'user' => $user,
-                'roles' => $roles,
-                'form_data' => (array)$user,
-                'errors' => $_SESSION['form_errors'] ?? []
-            ], 'app');
-            unset($_SESSION['form_errors']);
-            unset($_SESSION['form_data']);
-
-        } catch (Exception $e) {
-            // --- TEMPORARY DEBUGGING ---
-            echo "<h1>An Exception Occurred!</h1>";
-            echo "<p><strong>Message from Controller:</strong> Could not load user edit form.</p>";
-            echo "<p><strong>Specific Exception Message:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
-            echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . " on line " . htmlspecialchars($e->getLine()) . "</p>";
-            echo "<strong>Stack Trace:</strong><pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
-            error_log("Error in UserController::edit for user ID {$userId}: " . $e->getMessage() . "\n" . $e->getTraceAsString()); // Enhanced logging
-            // $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Could not load user edit form. Specific: ' . $e->getMessage()]; // Include specific message in flash
-            // header('Location: /admin/users'); // Comment out redirect to see the error
-            exit; // Stop execution to see the error
-            // --- END TEMPORARY DEBUGGING ---
-        }
-    }
-    public function save(): bool
-    {
-        $db = Connection::getInstance();
-        $now = date('Y-m-d H:i:s');
-
-        if ($this->id === null) { // Creating a new user
-            $this->created_at = $this->created_at ?? $now; // Ensure created_at is set
-            $this->updated_at = $now; // Set updated_at for new user
-
-            $sql = "INSERT INTO users (role_id, supervisor_id, first_name, last_name, email, password_hash, phone_number, address, pay_rate, is_active, created_at, updated_at) 
-                    VALUES (:role_id, :supervisor_id, :first_name, :last_name, :email, :password_hash, :phone_number, :address, :pay_rate, :is_active, :created_at, :updated_at)";
-            $stmt = $db->prepare($sql);
-            $stmt->bindParam(':created_at', $this->created_at, PDO::PARAM_STR);
-
-        } else { // Updating an existing user
-            $this->updated_at = $now; // Always update timestamp on save for existing record
-
-            // Note: The controller is responsible for ensuring $this->password_hash contains
-            // either the new hashed password or the original one if not changed.
-            $sql = "UPDATE users SET 
-                        role_id = :role_id,
-                        supervisor_id = :supervisor_id,
-                        first_name = :first_name,
-                        last_name = :last_name,
-                        email = :email,
-                        password_hash = :password_hash, 
-                        phone_number = :phone_number,
-                        address = :address,
-                        pay_rate = :pay_rate,
-                        is_active = :is_active,
-                        updated_at = :updated_at
-                    WHERE id = :id AND deleted_at IS NULL";
-            $stmt = $db->prepare($sql);
-            $stmt->bindParam(':id', $this->id, PDO::PARAM_INT);
-        }
-
-        // Bind common parameters
-        $isActiveInt = (int)$this->is_active;
-
-        $stmt->bindParam(':role_id', $this->role_id, PDO::PARAM_INT);
-        $stmt->bindParam(':first_name', $this->first_name, PDO::PARAM_STR);
-        $stmt->bindParam(':last_name', $this->last_name, PDO::PARAM_STR);
-        $stmt->bindParam(':email', $this->email, PDO::PARAM_STR);
-        $stmt->bindParam(':password_hash', $this->password_hash, PDO::PARAM_STR); // Bind whatever is in the property
-        $stmt->bindParam(':is_active', $isActiveInt, PDO::PARAM_INT);
-        $stmt->bindParam(':updated_at', $this->updated_at, PDO::PARAM_STR);
-
-        // Nullable fields - using bindValue for explicit NULL handling
-        $stmt->bindValue(':supervisor_id', $this->supervisor_id, $this->supervisor_id === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
-        $stmt->bindValue(':phone_number', $this->phone_number, $this->phone_number === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-        $stmt->bindValue(':address', $this->address, $this->address === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-        $stmt->bindValue(':pay_rate', $this->pay_rate, $this->pay_rate === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-
-        $success = $stmt->execute();
-        if ($success && $this->id === null) { // If it was an INSERT
-            $this->id = (int)$db->lastInsertId();
-        }
-        return $success;
-    }
+    // The save() method should be in your User.php MODEL, not here in the CONTROLLER.
+    // public function save(): bool { ... } // <--- REMOVE THIS FROM CONTROLLER
 }

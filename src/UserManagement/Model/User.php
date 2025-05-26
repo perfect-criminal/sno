@@ -266,4 +266,21 @@ class User
             throw new Exception("Database query failed while fetching assigned staff. " . $e->getMessage(), 0, $e);
         }
     }
+    public static function findAllByRoleId(int $roleId): array
+    {
+        $db = Connection::getInstance();
+        $sql = "SELECT u.*, r.role_name 
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            WHERE u.role_id = :role_id AND u.deleted_at IS NULL AND u.is_active = 1
+            ORDER BY u.last_name ASC, u.first_name ASC";
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(':role_id', $roleId, PDO::PARAM_INT);
+        $stmt->execute();
+        $users = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $userData) {
+            $users[] = new self($userData);
+        }
+        return $users;
+    }
 }

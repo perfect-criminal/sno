@@ -75,6 +75,27 @@
                         <?php endif; ?>
                     </div>
 
+                    <div class="mb-3" id="supervisor_assign_group">
+                        <label for="supervisor_id" class="form-label">Assign Supervisor (for Staff role)</label>
+                        <select class="form-select <?= isset($errors['supervisor_id']) ? 'is-invalid' : '' ?>" id="supervisor_id" name="supervisor_id">
+                            <option value="">-- None --</option>
+                            <?php if (!empty($supervisors)): ?>
+                                <?php foreach ($supervisors as $supervisor): ?>
+                                    <option value="<?= htmlspecialchars($supervisor->id) ?>"
+                                        <?= (isset($user_data['supervisor_id']) && $user_data['supervisor_id'] == $supervisor->id) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($supervisor->getFullName()) ?> (ID: <?= $supervisor->id ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <option value="" disabled>No active supervisors available.</option>
+                            <?php endif; ?>
+                        </select>
+                        <?php if (isset($errors['supervisor_id'])): ?>
+                            <div class="invalid-feedback"><?= htmlspecialchars($errors['supervisor_id']) ?></div>
+                        <?php endif; ?>
+                        <small class="form-text text-muted">Select a supervisor if the user's role is 'Staff' or similar.</small>
+                    </div>
+
                     <div class="mb-3">
                         <label for="pay_rate" class="form-label">Pay Rate (per hour)</label>
                         <input type="number" step="0.01" class="form-control <?= isset($errors['pay_rate']) ? 'is-invalid' : '' ?>" id="pay_rate" name="pay_rate" value="<?= htmlspecialchars($user_data['pay_rate'] ?? '') ?>">
