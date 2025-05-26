@@ -115,7 +115,7 @@
                         <tbody>
                         <?php foreach ($auditLogs as $log): ?>
                             <tr>
-                                <td><?= htmlspecialchars($log->created_at ? date('Y-m-d H:i:s', strtotime($log->created_at)) : 'N/A') ?></td> {/* <-- CORRECTED: $log->created_at */}
+                                <td><?= htmlspecialchars($log->created_at ? date('Y-m-d H:i:s', strtotime($log->created_at)) : 'N/A') ?></td>
                                 <td><?= htmlspecialchars($log->user_name ?? 'System/Unknown') ?> (ID: <?= htmlspecialchars($log->user_id ?? 'N/A') ?>)</td>
                                 <td><?= htmlspecialchars(str_replace('_', ' ', $log->action)) ?></td>
                                 <td>

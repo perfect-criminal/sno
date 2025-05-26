@@ -137,6 +137,7 @@ $router->post('/payroll/paysheets/mark-review/{id}', [PayrollPaysheetController:
 $router->get('/supervisor/paysheets/under-review', [SupervisorPaysheetController::class, 'listUnderReview']);
 $router->post('/supervisor/paysheets/cancel-review/{id}', [SupervisorPaysheetController::class, 'cancelReviewedPaysheet']);
 $router->post('/supervisor/paysheets/acknowledge-review/{id}', [SupervisorPaysheetController::class, 'acknowledgeReview']);
+$router->post('/supervisor/paysheets/resubmit-reviewed/{id}', [SupervisorPaysheetController::class, 'resubmitReviewedPaysheet']);
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];
 // Basic sanitization: remove query string from URI for routing

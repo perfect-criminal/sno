@@ -9,6 +9,7 @@ use App\UserManagement\Model\PaysheetItem;
 use App\UserManagement\Model\User;
 use App\UserManagement\Model\Site;      // Included if other methods might use it
 use App\UserManagement\Model\AuditLog;  // For logging actions
+use App\Core\Database\Connection;
 use Exception;
 use DateTime; // For date validation
 
@@ -369,7 +370,7 @@ class PaysheetController
             // 2. Revert status of these timesheets to 'Pending' (or 'CorrectionNeeded')
             if (!empty($timesheetIdsToRevert)) {
                 if (!Timesheet::revertStatusForCorrection($timesheetIdsToRevert, 'Pending')) {
-                    throw new Exception("Failed to revert status of associated timesheets.");
+                    throw new Exception("Failed to revert status of associated timesheets."); // This would trigger the catch block
                 }
                 // Log audit for each timesheet reverted (optional, can be verbose)
                 foreach ($timesheetIdsToRevert as $tsId) {
@@ -410,6 +411,120 @@ class PaysheetController
         }
 
         header('Location: /supervisor/paysheets/under-review'); // Refresh the list, or redirect to where they can fix timesheets
+        exit;
+    }
+    public function resubmitReviewedPaysheet(string $id): void
+    {
+        $this->enforceSupervisorAccess();
+        $paysheetId = (int)$id;
+        $supervisorId = $_SESSION['user_id'] ?? 0;
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Invalid request method.'];
+            header('Location: /supervisor/paysheets/under-review');
+            exit;
+        }
+
+        $db = Connection::getInstance(); // For transaction
+
+        try {
+            $paysheet = Paysheet::findById($paysheetId);
+
+            if (!$paysheet || $paysheet->supervisor_user_id !== $supervisorId || $paysheet->status !== 'AddressingReview') {
+                $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Paysheet not found or cannot be resubmitted at this time.'];
+                header('Location: /supervisor/paysheets/under-review');
+                exit;
+            }
+
+            $db->beginTransaction();
+
+            // 1. Delete old paysheet items (should have been done in acknowledgeReview, but defensive delete is okay)
+            // This ensures only new, corrected items are linked.
+            PaysheetItem::deleteByPaysheetId($paysheetId);
+
+            // 2. Re-fetch approved timesheets for the original period
+            $approvedTimesheetsData = Timesheet::findApprovedForPaysheet(
+                $supervisorId,
+                $paysheet->pay_period_start_date,
+                $paysheet->pay_period_end_date
+            );
+
+            if (empty($approvedTimesheetsData)) {
+                $db->rollBack(); // Rollback before redirecting
+                $_SESSION['flash_message'] = ['type' => 'info', 'message' => 'No approved timesheets found to regenerate items for this paysheet. Please ensure timesheets are corrected and approved.'];
+                header('Location: /supervisor/paysheets/under-review');
+                exit;
+            }
+
+            $newPaysheetItemsData = [];
+            $newTotalPaysheetAmount = 0.00;
+
+            foreach ($approvedTimesheetsData as $tsData) {
+                if (!isset($tsData['timesheet_id']) || !isset($tsData['hours_worked']) || !isset($tsData['pay_rate'])) {
+                    continue;
+                }
+                $hoursWorked = (float)$tsData['hours_worked'];
+                $payRate = (float)$tsData['pay_rate'];
+                $calculatedPay = $hoursWorked * $payRate;
+
+                $newPaysheetItemsData[] = [
+                    'timesheet_id' => (int)$tsData['timesheet_id'],
+                    'hours_worked_snapshot' => $hoursWorked,
+                    'pay_rate_snapshot' => $payRate,
+                    'calculated_pay' => $calculatedPay
+                ];
+                $newTotalPaysheetAmount += $calculatedPay;
+            }
+
+            if (empty($newPaysheetItemsData)) {
+                $db->rollBack();
+                $_SESSION['flash_message'] = ['type' => 'info', 'message' => 'No processable timesheet data after re-evaluation.'];
+                header('Location: /supervisor/paysheets/under-review');
+                exit;
+            }
+
+            // 3. Save new paysheet items
+            if (!PaysheetItem::saveBatch($paysheet->id, $newPaysheetItemsData)) {
+                throw new Exception("Failed to save new paysheet items during resubmission.");
+            }
+
+            // 4. Update the original paysheet record
+            $paysheet->total_hours_amount = $newTotalPaysheetAmount;
+            $paysheet->status = 'Pending Payroll'; // Back to payroll for review
+            $paysheet->submitted_at = date('Y-m-d H:i:s'); // Update submission time
+            $paysheet->review_remarks = null; // Clear payroll's previous remarks
+            $paysheet->reviewed_by_payroll_id = null;
+            $paysheet->approved_by_payroll_id = null; // Clear previous payroll approval if any
+            $paysheet->approved_at = null;
+
+            if (!$paysheet->save()) {
+                throw new Exception("Failed to update and resubmit paysheet.");
+            }
+
+            AuditLog::logAction(
+                $supervisorId,
+                'PAYSHEET_RESUBMITTED_BY_SUPERVISOR',
+                'Paysheet',
+                $paysheetId,
+                json_encode([
+                    'new_status' => 'Pending Payroll',
+                    'new_total_amount' => $newTotalPaysheetAmount,
+                    'items_recalculated' => count($newPaysheetItemsData)
+                ])
+            );
+
+            $db->commit();
+            $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'Paysheet (ID: '.$paysheetId.') has been re-evaluated and resubmitted to Payroll.'];
+
+        } catch (Exception $e) {
+            if ($db->inTransaction()) { // Check if transaction is active before rollback
+                $db->rollBack();
+            }
+            error_log("Error resubmitting paysheet ID {$paysheetId}: " . $e->getMessage());
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'An error occurred while resubmitting the paysheet: ' . $e->getMessage()];
+        }
+
+        header('Location: /supervisor/paysheets/under-review'); // Or /supervisor/paysheets
         exit;
     }
 }
