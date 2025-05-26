@@ -34,6 +34,7 @@ use App\Staff\Controller\DashboardController as StaffDashboardController;
 use App\Staff\Controller\TimesheetController as StaffTimesheetController;
 use App\Supervisor\Controller\DashboardController as SupervisorDashboardController;
 use App\Supervisor\Controller\TimesheetController as SupervisorTimesheetController;
+use App\Supervisor\Controller\PaysheetController as SupervisorPaysheetController;
 
 // 5. Instantiate the Router
 $router = new Router();
@@ -117,6 +118,11 @@ $router->get('/supervisor/timesheets/disputed', [SupervisorTimesheetController::
 $router->post('/supervisor/timesheets/approve', [SupervisorTimesheetController::class, 'approve']);
 $router->get('/supervisor/timesheets/reject-form/{id}', [SupervisorTimesheetController::class, 'showRejectForm']);
 $router->post('/supervisor/timesheets/reject-action/{id}', [SupervisorTimesheetController::class, 'processReject']);
+// ... (supervisor timesheet routes) ...
+$router->get('/supervisor/paysheets/create', [SupervisorPaysheetController::class, 'create']);     // <-- Show form
+$router->post('/supervisor/paysheets/generate', [SupervisorPaysheetController::class, 'generate']); // <-- Process form
+$router->get('/supervisor/paysheets', [SupervisorPaysheetController::class, 'index']); // <- view paysheets
+$router->get('/supervisor/paysheets/view/{id}', [SupervisorPaysheetController::class, 'view']);
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];
 // Basic sanitization: remove query string from URI for routing

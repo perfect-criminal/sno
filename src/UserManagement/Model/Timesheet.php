@@ -300,4 +300,48 @@ class Timesheet
             throw new Exception("Database query failed while fetching disputed timesheets: " . $e->getMessage(), 0, $e);
         }
     }
+/**
+* Find 'Approved' timesheets for staff assigned to a supervisor within a date range.
+* Includes staff pay_rate for calculations.
+* Excludes timesheets already linked in paysheet_items.
+*
+* @param int $supervisorId
+* @param string $startDate YYYY-MM-DD
+* @param string $endDate YYYY-MM-DD
+* @return array Array of timesheet data suitable for paysheet generation
+* @throws Exception
+*/
+    public static function findApprovedForPaysheet(int $supervisorId, string $startDate, string $endDate): array
+    {
+        if ($supervisorId <= 0) {
+            return [];
+        }
+        $db = Connection::getInstance();
+        try {
+            // Fetch timesheets that are 'Approved', belong to staff supervised by $supervisorId,
+            // fall within the date range, AND are not already in paysheet_items.
+            // Also fetch the staff user's pay_rate.
+            $sql = "SELECT t.id as timesheet_id, t.staff_user_id, t.hours_worked, u.pay_rate
+                    FROM timesheets t
+                    INNER JOIN users u ON t.staff_user_id = u.id
+                    WHERE u.supervisor_id = :supervisor_id
+                      AND t.status = 'Approved'
+                      AND t.shift_date BETWEEN :start_date AND :end_date
+                      AND t.deleted_at IS NULL
+                      AND u.deleted_at IS NULL
+                      AND NOT EXISTS (SELECT 1 FROM paysheet_items pi WHERE pi.timesheet_id = t.id)
+                    ORDER BY t.staff_user_id, t.shift_date ASC";
+
+            $stmt = $db->prepare($sql);
+            $stmt->bindParam(':supervisor_id', $supervisorId, PDO::PARAM_INT);
+            $stmt->bindParam(':start_date', $startDate, PDO::PARAM_STR);
+            $stmt->bindParam(':end_date', $endDate, PDO::PARAM_STR);
+            $stmt->execute();
+
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error in Timesheet::findApprovedForPaysheet (Sup ID {$supervisorId}): " . $e->getMessage());
+            throw new Exception("DB query failed while fetching approved timesheets for paysheet. " . $e->getMessage(), 0, $e);
+        }
+    }
 }
