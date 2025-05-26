@@ -1,9 +1,3 @@
-<?php
-echo "<pre>SESSION DEBUG:\n";
-var_dump($_SESSION);
-echo "</pre>";
-// The rest of your app.php layout file starts below
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,7 +10,6 @@ echo "</pre>";
         .app-container { width: 90%; max-width: 1200px; margin: 20px auto; padding: 0px; }
         header.app-header { background-color: #007bff; color: white; padding: 1rem 0; text-align: center; margin-bottom: 20px;}
         header.app-header h1 { margin: 0; }
-        /* nav.app-nav styling is handled by Bootstrap navbar classes now */
         footer.app-footer { text-align: center; padding: 20px 0; margin-top: 30px; color: #6c757d; border-top: 1px solid #dee2e6; }
         .alert-success { color: #0f5132; background-color: #d1e7dd; border-color: #badbcc; }
         .alert-danger { color: #842029; background-color: #f8d7da; border-color: #f5c2c7; }
@@ -39,41 +32,91 @@ echo "</pre>";
                 <li class="nav-item">
                     <a class="nav-link" href="/">Home</a>
                 </li>
+
                 <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
                     <?php
-                    // Determine the correct dashboard URL based on role
-                    $dashboardUrl = '/dashboard';
+                    // Determine the correct primary "Dashboard" or landing page URL based on role
+                    $dashboardUrl = '/dashboard'; // Generic fallback
                     if (isset($_SESSION['user_role_id'])) {
-                        if ($_SESSION['user_role_id'] === 1) { $dashboardUrl = '/admin/users'; }
-                        elseif ($_SESSION['user_role_id'] === 2) { $dashboardUrl = '/staff/dashboard'; }
-                        elseif ($_SESSION['user_role_id'] === 3) { $dashboardUrl = '/supervisor/dashboard'; }
-                        elseif ($_SESSION['user_role_id'] === 4) { $dashboardUrl = '/payroll/dashboard'; } // <-- ADD THIS
+                        if ($_SESSION['user_role_id'] === 1) { $dashboardUrl = '/admin/users'; }      // Admin lands on User list
+                        elseif ($_SESSION['user_role_id'] === 2) { $dashboardUrl = '/staff/dashboard'; }    // Staff to their dashboard
+                        elseif ($_SESSION['user_role_id'] === 3) { $dashboardUrl = '/supervisor/dashboard';}// Supervisor to their dashboard
+                        elseif ($_SESSION['user_role_id'] === 4) { $dashboardUrl = '/payroll/dashboard'; } // Payroll to their dashboard
                     }
                     ?>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= htmlspecialchars($dashboardUrl) ?>">Dashboard</a>
+                        <a class="nav-link" href="<?= htmlspecialchars($dashboardUrl) ?>">My Dashboard</a>
                     </li>
-                <?php endif; ?>
 
-                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 1): /* Admin links */ ?>
-                    {/* ... Admin links ... */}
-                <?php endif; ?>
+                    <?php // Admin Menu Dropdown
+                    if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 1): ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="adminMenuDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Admin Panel
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="adminMenuDropdown">
+                                <li><a class="dropdown-item" href="/admin/users">User Management</a></li>
+                                <li><a class="dropdown-item" href="/admin/companies">Company Management</a></li>
+                                <li><a class="dropdown-item" href="/admin/sites">Site Management</a></li>
 
-                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 3): /* Supervisor Links */ ?>
-                    {/* ... Supervisor links ... */}
-                <?php endif; ?>
+                            </ul>
+                        </li>
+                    <?php endif; ?>
 
-                <?php // Payroll Team specific links
-                if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 4): ?>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/payroll/paysheets/pending-review">Review Paysheets</a>
-                    </li>
-                    {/* Add more payroll links here, e.g., Payroll Runs, Reports */}
-                <?php endif; ?>
+                    <?php // Supervisor Menu Dropdown
+                    if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 3): ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="supervisorTimesheetDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Timesheet Actions
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="supervisorTimesheetDropdown">
+                                <li><a class="dropdown-item" href="/supervisor/timesheets/pending">Pending Approvals</a></li>
+                                <li><a class="dropdown-item" href="/supervisor/timesheets/disputed">Disputed Timesheets</a></li>
+                                <li><a class="dropdown-item" href="/supervisor/team-timesheets">All Team Timesheets</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="supervisorPaysheetDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Paysheets
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="supervisorPaysheetDropdown">
+                                <li><a class="dropdown-item" href="/supervisor/paysheets">My Generated Paysheets</a></li>
+                                <li><a class="dropdown-item" href="/supervisor/paysheets/create">Generate New Paysheet</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/supervisor/paysheets/under-review">Paysheets Under Review</a></li>
+                            </ul>
+                        </li>
+
+                    <?php endif; ?>
+
+                    <?php // Staff Menu (Could be a dropdown if they get more top-level actions)
+                    if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 2): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/staff/timesheets/create">Submit Timesheet</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/staff/timesheets">My Timesheets</a>
+                        </li>
+
+                    <?php endif; ?>
+
+                    <?php // Payroll Team Menu Dropdown
+                    if (isset($_SESSION['user_role_id']) && $_SESSION['user_role_id'] === 4): ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="payrollMenuDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Payroll Actions
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="payrollMenuDropdown">
+                                <li><a class="dropdown-item" href="/payroll/paysheets/pending-review">Review Submitted Paysheets</a></li>
+
+                            </ul>
+                        </li>
+                    <?php endif; ?>
+
+                <?php endif; // End of logged_in check for main menu items ?>
             </ul>
 
-            </ul>
-            <ul class="navbar-nav">
+            <ul class="navbar-nav"> {/* Right-aligned items */}
                 <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true): ?>
                     <li class="nav-item">
                         <a class="nav-link" href="/logout">Logout (<?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?>)</a>

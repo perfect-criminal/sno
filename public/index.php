@@ -36,6 +36,9 @@ use App\Supervisor\Controller\DashboardController as SupervisorDashboardControll
 use App\Supervisor\Controller\TimesheetController as SupervisorTimesheetController;
 use App\Supervisor\Controller\PaysheetController as SupervisorPaysheetController;
 use App\Payroll\Controller\DashboardController as PayrollDashboardController;
+use App\Payroll\Controller\PaysheetController as PayrollPaysheetController;
+
+
 // 5. Instantiate the Router
 $router = new Router();
 
@@ -118,13 +121,22 @@ $router->get('/supervisor/timesheets/disputed', [SupervisorTimesheetController::
 $router->post('/supervisor/timesheets/approve', [SupervisorTimesheetController::class, 'approve']);
 $router->get('/supervisor/timesheets/reject-form/{id}', [SupervisorTimesheetController::class, 'showRejectForm']);
 $router->post('/supervisor/timesheets/reject-action/{id}', [SupervisorTimesheetController::class, 'processReject']);
+
 // ... (supervisor timesheet routes) ...
 $router->get('/supervisor/paysheets/create', [SupervisorPaysheetController::class, 'create']);     // <-- Show form
 $router->post('/supervisor/paysheets/generate', [SupervisorPaysheetController::class, 'generate']); // <-- Process form
 $router->get('/supervisor/paysheets', [SupervisorPaysheetController::class, 'index']); // <- view paysheets
 $router->get('/supervisor/paysheets/view/{id}', [SupervisorPaysheetController::class, 'view']);
+$router->get('/supervisor/team-timesheets', [SupervisorTimesheetController::class, 'listTeamTimesheets']);
 // Payroll Routes
 $router->get('/payroll/dashboard', [PayrollDashboardController::class, 'index']);
+$router->get('/payroll/paysheets/pending-review', [PayrollPaysheetController::class, 'listPendingReview']);
+$router->get('/payroll/paysheets/review/{id}', [PayrollPaysheetController::class, 'reviewDetails']);
+$router->post('/payroll/paysheets/approve/{id}', [PayrollPaysheetController::class, 'approveForRun']);
+$router->post('/payroll/paysheets/mark-review/{id}', [PayrollPaysheetController::class, 'markForSupervisorReview']);
+$router->get('/supervisor/paysheets/under-review', [SupervisorPaysheetController::class, 'listUnderReview']);
+$router->post('/supervisor/paysheets/cancel-review/{id}', [SupervisorPaysheetController::class, 'cancelReviewedPaysheet']);
+$router->post('/supervisor/paysheets/acknowledge-review/{id}', [SupervisorPaysheetController::class, 'acknowledgeReview']);
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];
 // Basic sanitization: remove query string from URI for routing

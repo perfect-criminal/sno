@@ -344,4 +344,114 @@ class Timesheet
             throw new Exception("DB query failed while fetching approved timesheets for paysheet. " . $e->getMessage(), 0, $e);
         }
     }
+    /**
+     * Find all timesheets for staff assigned to a specific supervisor, with optional filters.
+     *
+     * @param int $supervisorId The ID of the supervisor.
+     * @param array $filters Associative array of filters:
+     * 'staff_id' => (int) staff user ID
+     * 'date_from' => (string) 'YYYY-MM-DD'
+     * 'date_to' => (string) 'YYYY-MM-DD'
+     * 'status' => (string) timesheet status
+     * @return Timesheet[] An array of Timesheet objects.
+     * @throws Exception
+     */
+    public static function findAllBySupervisorTeam(int $supervisorId, array $filters = []): array
+    {
+        if ($supervisorId <= 0) {
+            return [];
+        }
+
+        $db = Connection::getInstance();
+        $params = [':supervisor_id' => $supervisorId];
+
+        $sql = "SELECT t.*, s.site_name, CONCAT(u.first_name, ' ', u.last_name) AS staff_name
+                FROM timesheets t
+                INNER JOIN users u ON t.staff_user_id = u.id
+                INNER JOIN sites s ON t.site_id = s.id
+                WHERE u.supervisor_id = :supervisor_id
+                  AND t.deleted_at IS NULL 
+                  AND u.deleted_at IS NULL 
+                  AND s.deleted_at IS NULL";
+
+        if (!empty($filters['staff_id'])) {
+            $sql .= " AND t.staff_user_id = :staff_id";
+            $params[':staff_id'] = (int)$filters['staff_id'];
+        }
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND t.shift_date >= :date_from";
+            $params[':date_from'] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND t.shift_date <= :date_to";
+            $params[':date_to'] = $filters['date_to'];
+        }
+        if (!empty($filters['status'])) {
+            $sql .= " AND t.status = :status";
+            $params[':status'] = $filters['status'];
+        }
+
+        $sql .= " ORDER BY t.shift_date DESC, u.last_name ASC, u.first_name ASC, t.submitted_at DESC";
+
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params); // Execute with all bound parameters
+
+            $timesheetsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $timesheets = [];
+            foreach ($timesheetsData as $timesheetData) {
+                $timesheets[] = new self($timesheetData);
+            }
+            return $timesheets;
+        } catch (Exception $e) {
+            error_log("Error in Timesheet::findAllBySupervisorTeam for sup ID {$supervisorId}: " . $e->getMessage() . " SQL: " . $sql . " Params: " . print_r($params, true));
+            throw new Exception("Database query failed while fetching team timesheets: " . $e->getMessage(), 0, $e);
+        }
+    }
+    /**
+     * Reverts the status of specific timesheets, typically from 'Approved' back to 'Pending'.
+     * Also clears approval-related fields.
+     *
+     * @param int[] $timesheetIds Array of timesheet IDs to revert.
+     * @param string $newStatus The status to set (e.g., 'Pending', 'CorrectionNeeded').
+     * @return bool True if all updates were successful.
+     * @throws Exception
+     */
+    public static function revertStatusForCorrection(array $timesheetIds, string $newStatus = 'Pending'): bool
+    {
+        if (empty($timesheetIds)) {
+            return true; // Nothing to do
+        }
+
+        $db = Connection::getInstance();
+        // Ensure $newStatus is a valid status from your ENUM
+        $validStatuses = ['Pending', 'CorrectionNeeded']; // Add more if needed
+        if (!in_array($newStatus, $validStatuses)) {
+            throw new InvalidArgumentException("Invalid new status '{$newStatus}' for reverting timesheets.");
+        }
+
+        // Create placeholders for IN clause
+        $placeholders = rtrim(str_repeat('?,', count($timesheetIds)), ',');
+
+        $sql = "UPDATE timesheets 
+                SET status = ?, 
+                    approver_user_id = NULL, 
+                    approved_at = NULL,
+                    rejection_reason = NULL,      -- Clear these as it's a new cycle
+                    staff_dispute_reason = NULL,
+                    edited_by_supervisor_id = NULL,
+                    edited_at = NULL,
+                    original_hours_worked = NULL
+                WHERE id IN ({$placeholders})
+                  AND status = 'Approved'"; // Only revert 'Approved' timesheets from this paysheet
+
+        try {
+            $stmt = $db->prepare($sql);
+            $params = array_merge([$newStatus], $timesheetIds);
+            return $stmt->execute($params);
+        } catch (Exception $e) {
+            error_log("Error in Timesheet::revertStatusForCorrection: " . $e->getMessage());
+            throw new Exception("Database query failed while reverting timesheet statuses. " . $e->getMessage(), 0, $e);
+        }
+    }
 }

@@ -451,4 +451,68 @@ class TimesheetController
             'errorMessage' => $errorMessage
         ], 'app');
     }
+    /**
+     * Display a list of all timesheets for the supervisor's team, with filtering options.
+     */
+    public function listTeamTimesheets(): void
+    {
+        $this->enforceSupervisorAccess();
+        $supervisorId = $_SESSION['user_id'] ?? 0;
+
+        $teamMembers = [];
+        $timesheets = [];
+        $errorMessage = null;
+
+        // Get filter values from GET request
+        $filters = [
+            'staff_id' => isset($_GET['staff_id']) ? (int)$_GET['staff_id'] : null,
+            'date_from' => $_GET['date_from'] ?? null,
+            'date_to' => $_GET['date_to'] ?? null,
+            'status' => $_GET['status'] ?? null,
+        ];
+
+        // Basic validation for dates if provided
+        if ($filters['date_from'] && !DateTime::createFromFormat('Y-m-d', $filters['date_from'])) {
+            $filters['date_from'] = null; // Invalid, so ignore
+            // Optionally set a flash error message about invalid date format
+        }
+        if ($filters['date_to'] && !DateTime::createFromFormat('Y-m-d', $filters['date_to'])) {
+            $filters['date_to'] = null; // Invalid, so ignore
+        }
+        // Ensure date_to is not before date_from
+        if ($filters['date_from'] && $filters['date_to'] && $filters['date_from'] > $filters['date_to']) {
+            // Swap them or set an error; for now, let's just note it or you could set an error message.
+            // For simplicity, the query can handle it, or you can clear one.
+            // $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'Start date cannot be after end date for filtering.'];
+            // $filters['date_to'] = $filters['date_from']; // or nullify
+        }
+
+
+        if ($supervisorId <= 0) {
+            $_SESSION['flash_message'] = ['type' => 'error', 'message' => 'User session error. Please login again.'];
+            header('Location: /login');
+            exit;
+        }
+
+        try {
+            $teamMembers = User::findStaffBySupervisorId($supervisorId);
+            $timesheets = Timesheet::findAllBySupervisorTeam($supervisorId, $filters);
+        } catch (Exception $e) {
+            error_log("Error fetching team timesheets or staff for supervisor ID {$supervisorId}: " . $e->getMessage());
+            $errorMessage = "Could not load team timesheet data at this time.";
+        }
+
+        // For the status filter dropdown
+        $timesheetStatuses = ['Pending', 'Approved', 'Rejected', 'EditedBySupervisor', 'PendingStaffConfirmation', 'DisputedByStaff'];
+
+
+        View::render('supervisor/timesheets/team_overview', [
+            'pageTitle' => 'Team Timesheets Overview',
+            'teamMembers' => $teamMembers,      // For the staff filter dropdown
+            'timesheets' => $timesheets,         // The list of timesheets
+            'filters' => $filters,             // To pre-fill filter form
+            'timesheetStatuses' => $timesheetStatuses, // For status filter dropdown
+            'errorMessage' => $errorMessage
+        ], 'app');
+    }
 }

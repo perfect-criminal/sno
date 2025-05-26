@@ -123,4 +123,28 @@ class PaysheetItem
         }
         return $items;
     }
+    /**
+     * Delete all items associated with a specific paysheet ID.
+     * This is a hard delete as paysheet items are children of a paysheet.
+     *
+     * @param int $paysheetId
+     * @return bool True on success, false on failure.
+     * @throws Exception
+     */
+    public static function deleteByPaysheetId(int $paysheetId): bool
+    {
+        if ($paysheetId <= 0) {
+            return false;
+        }
+        $db = Connection::getInstance();
+        try {
+            $sql = "DELETE FROM paysheet_items WHERE paysheet_id = :paysheet_id";
+            $stmt = $db->prepare($sql);
+            $stmt->bindParam(':paysheet_id', $paysheetId, PDO::PARAM_INT);
+            return $stmt->execute();
+        } catch (Exception $e) {
+            error_log("Error in PaysheetItem::deleteByPaysheetId for Paysheet ID {$paysheetId}: " . $e->getMessage());
+            throw $e;
+        }
+    }
 }
