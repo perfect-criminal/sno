@@ -35,7 +35,7 @@ use App\Staff\Controller\TimesheetController as StaffTimesheetController;
 use App\Supervisor\Controller\DashboardController as SupervisorDashboardController;
 use App\Supervisor\Controller\TimesheetController as SupervisorTimesheetController;
 use App\Supervisor\Controller\PaysheetController as SupervisorPaysheetController;
-
+use App\Payroll\Controller\DashboardController as PayrollDashboardController;
 // 5. Instantiate the Router
 $router = new Router();
 
@@ -123,6 +123,8 @@ $router->get('/supervisor/paysheets/create', [SupervisorPaysheetController::clas
 $router->post('/supervisor/paysheets/generate', [SupervisorPaysheetController::class, 'generate']); // <-- Process form
 $router->get('/supervisor/paysheets', [SupervisorPaysheetController::class, 'index']); // <- view paysheets
 $router->get('/supervisor/paysheets/view/{id}', [SupervisorPaysheetController::class, 'view']);
+// Payroll Routes
+$router->get('/payroll/dashboard', [PayrollDashboardController::class, 'index']);
 // 7. Dispatch the request
 $requestUri = $_SERVER['REQUEST_URI'];
 // Basic sanitization: remove query string from URI for routing

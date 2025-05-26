@@ -108,9 +108,11 @@ HTML;
                     } elseif ($user->role_id === 2) { // Staff
                         header('Location: /staff/dashboard');
                     } elseif ($user->role_id === 3) { // Supervisor
-                        header('Location: /supervisor/dashboard'); // Placeholder for now
+                        header('Location: /supervisor/dashboard');
+                    } elseif ($user->role_id === 4) { // Payroll Team  <-- ADD THIS
+                        header('Location: /payroll/dashboard');
                     } else {
-                        header('Location: /dashboard'); // Generic fallback or for other roles
+                        header('Location: /dashboard');
                     }
                     exit;
                 }
