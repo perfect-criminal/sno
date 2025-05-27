@@ -72,7 +72,7 @@ $router->get('/dashboard', function() {
         'userRoleId' => $_SESSION['user_role_id']
     ], 'app'); // 'app' is the layout file (templates/layouts/app.php)
 });
-
+//ROUTES DEFINED FOR ALL FUNCTIONALITIES OF THE PROGRAM
 // Admin Routes
 $router->get('/admin/users', [AdminUserController::class, 'index']);
 
