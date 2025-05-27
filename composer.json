@@ -17,6 +17,7 @@
     "psr-4": {
       "App\\": "src/"
     }
+    "license": "proprietary"
   },
   "config": {
     "optimize-autoloader": true,
